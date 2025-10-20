@@ -2,11 +2,13 @@
 #include <JuceHeader.h>
 
 class PlayerAudio {
-
 private:
     juce::AudioFormatManager formatManager;
     std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
     juce::AudioTransportSource transportSource;
+
+    bool isLooping = false;
+    bool wasPlaying = false;
 
 public:
     PlayerAudio();
@@ -21,10 +23,16 @@ public:
     void stop();
     void pause();
     void goToEnd();
+    void loop();
     void setGain(float gain);
     void setPosition(double pos);
     double getPosition() const;
     double getLength() const;
+    void setPositionNormalized(double normalizedPos);  
+    double getPositionNormalized() const;              
+    bool isLoopingEnabled() const { return isLooping; }
+    void performLoop();
 
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerAudio)
 };
 
