@@ -30,6 +30,7 @@ private:
     juce::Slider volumeSlider;
     juce::Slider positionSlider;
     juce::Label timeLabel;
+	juce::TextButton muteButton{ "Mute" };
     bool isDraggingSlider = false;
 
 
