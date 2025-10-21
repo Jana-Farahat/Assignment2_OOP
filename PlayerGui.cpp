@@ -1,7 +1,6 @@
-
 #include "PlayerGui.h"
 PlayerGui::PlayerGui() {
-    for (auto* btn : { &loadButton, &restartButton , &stopButton, &pauseButton , &playButton, &goToEndButton, &loopButton })
+    for (auto* btn : { &loadButton, &restartButton , &stopButton, &pauseButton , &playButton, &goToEndButton, &loopButton,&muteButton })
     {
         btn->addListener(this);
         addAndMakeVisible(btn);
@@ -40,6 +39,7 @@ void PlayerGui::resized()
     playButton.setBounds(410, y, 80, 40);
     goToEndButton.setBounds(510, y, 80, 40);
     loopButton.setBounds(610, y, 80, 40);
+	muteButton.setBounds(710, y, 80, 40);
     
     volumeSlider.setBounds(20, 100, getWidth() - 40, 30);
 
@@ -92,6 +92,10 @@ void PlayerGui::buttonClicked(juce::Button* button)
     else if (button == &loopButton)
     {
         playerAudio->loop();
+    }
+    else if (button == &muteButton)
+    {
+        playerAudio->setGain(0.0f, true);
     }
 }
 
