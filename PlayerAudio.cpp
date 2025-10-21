@@ -69,9 +69,33 @@ void PlayerAudio::performLoop() {
         transportSource.start();
     }
 }
-void PlayerAudio::setGain(float gain) {
-    transportSource.setGain(gain);
+void PlayerAudio::setGain(float gain, bool mute)
+{
+    if (mute)
+    {isMuted = !isMuted;
+
+        if (isMuted)
+        {lastGain = transportSource.getGain();
+         transportSource.setGain(0.0f);
+        }
+        else
+        {transportSource.setGain(lastGain);
+        }
+    }
+    else
+    {
+        if (!isMuted)
+        {transportSource.setGain(gain);
+         lastGain = gain;
+        }
+    }
 }
+void PlayerAudio::setGain(float gain)
+{
+    setGain(gain, false);  
+}
+
+
 void PlayerAudio::setPosition(double pos) {
     transportSource.setPosition(pos);
 }
