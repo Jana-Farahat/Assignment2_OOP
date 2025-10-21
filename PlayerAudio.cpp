@@ -3,6 +3,7 @@
 
 PlayerAudio::PlayerAudio() {
 	formatManager.registerBasicFormats();
+    transportSource.setLooping(false);
 }
 PlayerAudio::~PlayerAudio() {
 	
@@ -59,7 +60,15 @@ void PlayerAudio::restart() {
     transportSource.setPosition(0.0);
     transportSource.start();
 }
-
+void PlayerAudio::loop() {
+    isLooping = !isLooping; //toggle
+}
+void PlayerAudio::performLoop() {
+    if (isLooping && transportSource.hasStreamFinished()) {
+        transportSource.setPosition(0.0);
+        transportSource.start();
+    }
+}
 void PlayerAudio::setGain(float gain) {
     transportSource.setGain(gain);
 }
@@ -73,3 +82,10 @@ double PlayerAudio::getLength() const {
     return transportSource.getLengthInSeconds();
 }
 
+double PlayerAudio::getPositionNormalized() const {
+    return transportSource.getCurrentPosition() / transportSource.getLengthInSeconds(); //return position 0.0 to 1.0
+}
+
+void PlayerAudio::setPositionNormalized(double normalizedPos) {
+    transportSource.setPosition(normalizedPos * transportSource.getLengthInSeconds()); //set position to normalized position
+}
