@@ -9,6 +9,8 @@ private:
 
     bool isLooping = false;
     bool wasPlaying = false;
+    bool isMuted = false;     
+    float lastGain = 1.0f;
 
 public:
     PlayerAudio();
@@ -32,6 +34,7 @@ public:
     double getPositionNormalized() const;              
     bool isLoopingEnabled() const { return isLooping; }
     void performLoop();
+	void setGain(float gain, bool isMute);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerAudio)
 };
