@@ -5,6 +5,7 @@
 
 
 class MainComponent : public juce::AudioAppComponent
+    
 {
 public:
     MainComponent();
