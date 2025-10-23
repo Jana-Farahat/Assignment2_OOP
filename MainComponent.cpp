@@ -8,8 +8,8 @@ MainComponent::MainComponent()
     addAndMakeVisible(playerGui);
     setSize(800, 250);
     setAudioChannels(0, 2);
-    
-  
+
+
 }
 
 
