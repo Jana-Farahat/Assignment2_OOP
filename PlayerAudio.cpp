@@ -2,21 +2,21 @@
 
 
 PlayerAudio::PlayerAudio() {
-	formatManager.registerBasicFormats();
+    formatManager.registerBasicFormats();
     transportSource.setLooping(false);
 }
 PlayerAudio::~PlayerAudio() {
-	
+
 }
 void PlayerAudio::prepareToPlay(int samplesPerBlockExpected, double sampleRate) {
-	transportSource.prepareToPlay(samplesPerBlockExpected, sampleRate);
+    transportSource.prepareToPlay(samplesPerBlockExpected, sampleRate);
 }
 void PlayerAudio::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) {
-	transportSource.getNextAudioBlock(bufferToFill);
+    transportSource.getNextAudioBlock(bufferToFill);
 }
 
 void PlayerAudio::releaseResources() {
-	transportSource.releaseResources();
+    transportSource.releaseResources();
 }
 
 bool PlayerAudio::loadFile(const juce::File& file) {
@@ -54,7 +54,10 @@ void PlayerAudio::pause() {
     transportSource.setPosition(transportSource.getCurrentPosition());
 }
 void PlayerAudio::goToEnd() {
-    transportSource.setPosition(transportSource.getLengthInSeconds() - 1);
+    transportSource.setPosition(transportSource.getLengthInSeconds());
+}
+void PlayerAudio::goToStart() {
+    transportSource.setPosition(0.0);
 }
 void PlayerAudio::restart() {
     transportSource.setPosition(0.0);
@@ -64,35 +67,41 @@ void PlayerAudio::loop() {
     isLooping = !isLooping; //toggle
 }
 void PlayerAudio::performLoop() {
-    if (isLooping && transportSource.hasStreamFinished()) {
-        transportSource.setPosition(0.0);
-        transportSource.start();
-    }
+    
+     if (isLooping && transportSource.hasStreamFinished()) {
+          transportSource.setPosition(0.0);
+          transportSource.start();
+     }
+    
 }
 void PlayerAudio::setGain(float gain, bool mute)
 {
     if (mute)
-    {isMuted = !isMuted;
+    {
+        isMuted = !isMuted;
 
         if (isMuted)
-        {lastGain = transportSource.getGain();
-         transportSource.setGain(0.0f);
+        {
+            lastGain = transportSource.getGain();
+            transportSource.setGain(0.0f);
         }
         else
-        {transportSource.setGain(lastGain);
+        {
+            transportSource.setGain(lastGain);
         }
     }
     else
     {
         if (!isMuted)
-        {transportSource.setGain(gain);
-         lastGain = gain;
+        {
+            transportSource.setGain(gain);
+            lastGain = gain;
         }
     }
 }
 void PlayerAudio::setGain(float gain)
 {
-    setGain(gain, false);  
+    setGain(gain, false);
 }
 
 
