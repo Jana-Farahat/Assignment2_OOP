@@ -9,7 +9,7 @@ private:
 
     bool isLooping = false;
     bool wasPlaying = false;
-    bool isMuted = false;     
+    bool isMuted = false;
     float lastGain = 1.0f;
 
 public:
@@ -25,17 +25,17 @@ public:
     void stop();
     void pause();
     void goToEnd();
+    void goToStart();
     void loop();
     void setGain(float gain);
     void setPosition(double pos);
     double getPosition() const;
     double getLength() const;
-    void setPositionNormalized(double normalizedPos);  
-    double getPositionNormalized() const;              
+    void setPositionNormalized(double normalizedPos);
+    double getPositionNormalized() const;
     bool isLoopingEnabled() const { return isLooping; }
     void performLoop();
-	void setGain(float gain, bool isMute);
+    void setGain(float gain, bool isMute);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerAudio)
 };
-

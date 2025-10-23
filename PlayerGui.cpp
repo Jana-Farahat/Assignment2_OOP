@@ -1,10 +1,12 @@
 #include "PlayerGui.h"
 PlayerGui::PlayerGui() {
-    for (auto* btn : { &loadButton, &restartButton , &stopButton, &pauseButton , &playButton, &goToEndButton, &loopButton,&muteButton })
+    for (auto* btn : { &loadButton, &restartButton , &stopButton, &pauseButton , &playButton, &goToEndButton, &loopButton,&muteButton, &goToStartButton })
     {
         btn->addListener(this);
         addAndMakeVisible(btn);
     }
+    
+
     volumeSlider.setRange(0.0, 1.0, 0.01);
     volumeSlider.setValue(1.0);
     volumeSlider.addListener(this);
@@ -21,26 +23,28 @@ PlayerGui::PlayerGui() {
 }
 PlayerGui::~PlayerGui()
 {
- 
+
 }
 void PlayerGui::paint(juce::Graphics& g) {
     g.fillAll(juce::Colours::darkgrey);
 
-    
+
 }
 
 void PlayerGui::resized()
 {
     int y = 20;
     loadButton.setBounds(20, y, 80, 40);
-    restartButton.setBounds(110, y, 80, 40);
-    stopButton.setBounds(210, y, 80, 40);
-    pauseButton.setBounds(300, y, 80, 40);
-    playButton.setBounds(410, y, 80, 40);
-    goToEndButton.setBounds(510, y, 80, 40);
-    loopButton.setBounds(610, y, 80, 40);
-	muteButton.setBounds(710, y, 80, 40);
-    
+    restartButton.setBounds(120, y, 80, 40);
+    stopButton.setBounds(220, y, 80, 40);
+    pauseButton.setBounds(320, y, 80, 40);
+    playButton.setBounds(420, y, 80, 40);
+    goToEndButton.setBounds(520, y, 80, 40);
+    goToStartButton.setBounds(620, y, 80, 40);
+    loopButton.setBounds(720, y, 80, 40);
+    muteButton.setBounds(820, y, 80, 40);
+
+
     volumeSlider.setBounds(20, 100, getWidth() - 40, 30);
 
     positionSlider.setBounds(20, 150, getWidth() - 40, 30);
@@ -49,7 +53,7 @@ void PlayerGui::resized()
 
 void PlayerGui::buttonClicked(juce::Button* button)
 {
-    if (playerAudio == nullptr) return;  
+    if (playerAudio == nullptr) return;
 
     if (button == &loadButton)
     {
@@ -79,7 +83,7 @@ void PlayerGui::buttonClicked(juce::Button* button)
     }
     else if (button == &pauseButton)
     {
-        playerAudio->pause(); 
+        playerAudio->pause();
     }
     else if (button == &playButton)
     {
@@ -88,6 +92,9 @@ void PlayerGui::buttonClicked(juce::Button* button)
     else if (button == &goToEndButton)
     {
         playerAudio->goToEnd();
+    }
+    else if (button == &goToStartButton) {
+        playerAudio->goToStart();
     }
     else if (button == &loopButton)
     {
@@ -126,11 +133,11 @@ void PlayerGui::timerCallback() {
     if (playerAudio != nullptr && !isDraggingSlider) {
         // Update position slider
         positionSlider.setValue(playerAudio->getPositionNormalized());
-        
+
         // Update time display
         double currentTime = playerAudio->getPosition();
         double totalTime = playerAudio->getLength();
-        
+
         juce::String timeText = formatTime(currentTime) + " / " + formatTime(totalTime);
         timeLabel.setText(timeText, juce::dontSendNotification);
     }
