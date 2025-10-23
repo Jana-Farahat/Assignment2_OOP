@@ -1,10 +1,10 @@
-#pragma once
+﻿#pragma once
 #include <JuceHeader.h>
 #include "PlayerAudio.h"
-class PlayerGui: public juce::Component,
-                 public juce::Button::Listener,
-                 public juce::Slider::Listener,
-                 public juce::Timer
+class PlayerGui : public juce::Component,
+    public juce::Button::Listener,
+    public juce::Slider::Listener,
+    public juce::Timer
 {
 public:
     PlayerGui();
@@ -15,6 +15,7 @@ public:
     }
     void paint(juce::Graphics& g) override;
     void resized() override;
+  
 
 private:
     PlayerAudio* playerAudio = nullptr; //to be connected to player audio
@@ -23,14 +24,15 @@ private:
     juce::TextButton loadButton{ "Load" };
     juce::TextButton restartButton{ "Restart" };
     juce::TextButton stopButton{ "Stop" };
-    juce::TextButton pauseButton{ "Pause" };
-    juce::TextButton playButton{ "Play" };
-    juce::TextButton goToEndButton{ "Go to end" };
+    juce::TextButton pauseButton{ "Pause ||" };
+    juce::TextButton playButton{ "Play >" };
+    juce::TextButton goToEndButton{ "Go to end >|" };
+    juce::TextButton goToStartButton{ "Go to start |<" };
     juce::TextButton loopButton{ "Loop" };
     juce::Slider volumeSlider;
     juce::Slider positionSlider;
     juce::Label timeLabel;
-	juce::TextButton muteButton{ "Mute" };
+    juce::TextButton muteButton{ "Mute" };
     bool isDraggingSlider = false;
 
 
@@ -43,4 +45,3 @@ private:
     void timerCallback() override;
     juce::String formatTime(double seconds);
 };
-
