@@ -20,6 +20,8 @@ public:
     void releaseResources();
 
     bool loadFile(const juce::File& file);
+    juce::String getMetadataInfo() ;
+    juce::String formatTime(double seconds);
     void play();
     void restart();
     void stop();

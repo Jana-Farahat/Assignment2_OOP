@@ -1,9 +1,16 @@
 #include "PlayerAudio.h"
 
-
+juce::File loadedFile;
 PlayerAudio::PlayerAudio() {
     formatManager.registerBasicFormats();
     transportSource.setLooping(false);
+}
+
+
+juce::String PlayerAudio::formatTime(double seconds) {
+    int minutes = (int)(seconds / 60);
+    int secs = (int)(seconds) % 60;
+    return juce::String::formatted("%02d:%02d", minutes, secs);
 }
 PlayerAudio::~PlayerAudio() {
 
@@ -37,11 +44,58 @@ bool PlayerAudio::loadFile(const juce::File& file) {
                 0,
                 nullptr,
                 reader->sampleRate);
+            loadedFile = file;
             return true;
+            
         }
     }
     return false;
 }
+
+juce::String PlayerAudio::getMetadataInfo() 
+{
+    if (!loadedFile.existsAsFile())
+        return "No file loaded";
+
+   
+
+
+    if (auto* reader = formatManager.createReaderFor(loadedFile))
+    {
+       
+        juce::String info;
+        info += "File: " + loadedFile.getFileName() + "\n";
+        info += "Size: " + juce::String(loadedFile.getSize() / 1024) + " KB\n";
+        info += "Duration: " + formatTime(reader->lengthInSamples / reader->sampleRate) + "\n";
+      
+
+        juce::StringPairArray metadata = reader->metadataValues;
+        
+
+        if (metadata.size() > 0)
+        {
+            info += "All metadata keys:\n";
+            juce::StringArray keys = metadata.getAllKeys();
+
+            for (int i = 0; i < keys.size(); ++i)
+            {
+                juce::String key = keys[i];
+                juce::String value = metadata.getValue(key, "EMPTY");
+                info +=  key + "' = '" + value + "'\n";
+            }
+        }
+        else
+        {
+            info += "NO METADATA FOUND - File may not contain ID3 tags\n";
+        }
+
+        return info;
+    }
+
+    return "Error reading file";
+}
+
+
 void PlayerAudio::play() {
     transportSource.start();
 }
@@ -69,7 +123,7 @@ void PlayerAudio::loop() {
 void PlayerAudio::performLoop() {
     
      if (isLooping && transportSource.hasStreamFinished()) {
-          transportSource.setPosition(0.0);
+          transportSource.setPosition(0.0); 
           transportSource.start();
      }
     

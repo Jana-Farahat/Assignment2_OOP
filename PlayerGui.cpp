@@ -6,6 +6,10 @@ PlayerGui::PlayerGui() {
         addAndMakeVisible(btn);
     }
     
+    fileInfoLabel.setText("No file loaded", juce::dontSendNotification);
+    fileInfoLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    fileInfoLabel.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(fileInfoLabel);
 
     volumeSlider.setRange(0.0, 1.0, 0.01);
     volumeSlider.setValue(1.0);
@@ -43,7 +47,9 @@ void PlayerGui::resized()
     goToStartButton.setBounds(620, y, 80, 40);
     loopButton.setBounds(720, y, 80, 40);
     muteButton.setBounds(820, y, 80, 40);
-
+    
+    auto area = getLocalBounds();
+    fileInfoLabel.setBounds(area.removeFromBottom(200));
 
     volumeSlider.setBounds(20, 100, getWidth() - 40, 30);
 
@@ -70,6 +76,7 @@ void PlayerGui::buttonClicked(juce::Button* button)
                 if (file.existsAsFile())
                 {
                     playerAudio->loadFile(file);
+                    fileInfoLabel.setText(playerAudio->getMetadataInfo(), juce::dontSendNotification);
                 }
             });
     }

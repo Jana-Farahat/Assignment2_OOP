@@ -34,6 +34,7 @@ private:
     juce::Label timeLabel;
     juce::TextButton muteButton{ "Mute" };
     bool isDraggingSlider = false;
+    juce::Label fileInfoLabel;
 
 
     std::unique_ptr<juce::FileChooser> fileChooser;
