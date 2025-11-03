@@ -47,8 +47,8 @@ bool PlayerAudio::loadFile(const juce::File& file) {
                 NULL,
                 currentSampleRate);
 
-            // Clear A-B markers on new file load
             clearMarkers();
+            clearTrackMarkers();
 
             loadedFile = file;
             return true;
@@ -153,14 +153,15 @@ void PlayerAudio::loop() {
 }
 
 void PlayerAudio::performLoop() {
-    //AB loop has priority over regular loop
     if (isABLoopActive()) {
-        double currentPos = transportSource.getCurrentPosition();
-        if (currentPos >= markerB || currentPos < markerA || transportSource.hasStreamFinished())
-        {
-            transportSource.setPosition(markerA);
-            if (!transportSource.isPlaying())
-            {
+        double len = getLength();
+        double markerATime = markerA * len;
+        double markerBTime = markerB * len;
+        double absPos = transportSource.getCurrentPosition();
+        
+        if (absPos >= markerBTime || absPos < markerATime || transportSource.hasStreamFinished()) {
+            setPositionNormalized(markerA);
+            if (!transportSource.isPlaying()) {
                 transportSource.start();
             }
         }
@@ -231,41 +232,29 @@ void PlayerAudio::setSpeed(double speed)
     if (readerSource != NULL && currentSampleRate > 0.0)
     {
         bool playing = transportSource.isPlaying();
-        double pos = transportSource.getCurrentPosition();
+        double normalizedPos = getPositionNormalized();
 
         transportSource.stop();
         transportSource.setSource(NULL);
 
         double newRate = currentSampleRate * speed;
-        transportSource.setSource(readerSource.get(),
-            0,
-            NULL,
-            newRate);
+        transportSource.setSource(readerSource.get(), 0, NULL, newRate);
 
-        transportSource.setPosition(pos);
+        setPositionNormalized(normalizedPos);
         if (playing)
             transportSource.start();
     }
 }
 
-// A-B loop methods
 void PlayerAudio::setMarkerA() {
-    markerA = transportSource.getCurrentPosition();
-    if (markerA < 0) markerA = 0.0;
-    double length = transportSource.getLengthInSeconds();
-    if (markerA > length) markerA = length;
+    markerA = juce::jlimit(0.0, 1.0, getPositionNormalized());
     if (markerB >= 0 && markerA >= markerB) {
         markerB = -1.0;
     }
 }
 
 void PlayerAudio::setMarkerB() {
-    markerB = transportSource.getCurrentPosition();
-    if (markerB < 0) 
-    markerB = 0.0;
-    double length = transportSource.getLengthInSeconds();
-    if (markerB > length) 
-    markerB = length;
+    markerB = juce::jlimit(0.0, 1.0, getPositionNormalized());
     if (markerA >= 0 && markerB <= markerA) {
         markerA = -1.0;
     }
@@ -282,4 +271,53 @@ void PlayerAudio::toggleABLoop() {
     if (isABLoopEnabled && (markerA < 0 || markerB < 0 || markerB <= markerA)) {
         isABLoopEnabled = false;
     }
+}
+
+double PlayerAudio::getMarkerA() const {
+    return markerA;
+}
+
+double PlayerAudio::getMarkerB() const {
+    return markerB;
+}
+
+bool PlayerAudio::isABLoopActive() const {
+    return isABLoopEnabled && markerA >= 0 && markerB >= 0 && markerB > markerA;
+}
+
+double PlayerAudio::getMarkerATime() const {
+    return (markerA >= 0) ? markerA * getLength() : -1.0;
+}
+
+double PlayerAudio::getMarkerBTime() const {
+    return (markerB >= 0) ? markerB * getLength() : -1.0;
+}
+
+void PlayerAudio::addTrackMarker() {
+    trackMarkers.add(juce::jlimit(0.0, 1.0, getPositionNormalized()));
+    trackMarkers.sort();
+}
+
+void PlayerAudio::removeTrackMarker(int index) {
+    if (index >= 0 && index < trackMarkers.size()) {
+        trackMarkers.remove(index);
+    }
+}
+
+void PlayerAudio::jumpToMarker(int index) {
+    if (index >= 0 && index < trackMarkers.size()) {
+        double normalizedPos = trackMarkers[index];
+        setPositionNormalized(normalizedPos);
+        if (!transportSource.isPlaying()) {
+            transportSource.start();
+        }
+    }
+}
+
+double PlayerAudio::getMarkerTime(int index) const {
+    return (index >= 0 && index < trackMarkers.size()) ? trackMarkers[index] * getLength() : -1.0;
+}
+
+void PlayerAudio::clearTrackMarkers() {
+    trackMarkers.clear();
 }

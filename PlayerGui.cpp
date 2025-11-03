@@ -1,5 +1,46 @@
 #include "PlayerGui.h"
 
+int MarkerListModel::getNumRows() {
+    if (playerAudio == nullptr)
+        return 0;
+    return playerAudio->getMarkerCount();
+}
+
+void MarkerListModel::paintListBoxItem(int row, juce::Graphics& g, int width, int height, bool rowIsSelected) {
+    (void)row; (void)g; (void)width; (void)height; (void)rowIsSelected;
+}
+
+Component* MarkerListModel::refreshComponentForRow(int rowNumber, bool isRowSelected, Component* existingComponentToUpdate) {
+    (void)isRowSelected;
+    
+    auto createComponent = [this](int row) {
+        return new MarkerRowComponent(playerAudio, row, [this]() {
+            if (playerGui) playerGui->updateMarkersList();
+        });
+    };
+    
+    if (playerAudio == nullptr || rowNumber < 0 || rowNumber >= playerAudio->getMarkerCount()) {
+        if (existingComponentToUpdate != nullptr) {
+            existingComponentToUpdate->setVisible(false);
+        }
+        return existingComponentToUpdate;
+    }
+    
+    if (auto* rowComp = dynamic_cast<MarkerRowComponent*>(existingComponentToUpdate)) {
+        rowComp->updateIndex(rowNumber);
+        return existingComponentToUpdate;
+    }
+    
+    if (existingComponentToUpdate != nullptr) {
+        delete existingComponentToUpdate;
+    }
+    return createComponent(rowNumber);
+}
+
+void MarkerListModel::selectedRowsChanged(int row) {
+    (void)row;
+}
+
 PlayerGui::PlayerGui() {
     for (auto* btn : { &loadButton, &restartButton , &stopButton, &pauseButton , &playButton, &goToEndButton, &loopButton, &muteButton, &goToStartButton })
     {
@@ -27,7 +68,6 @@ PlayerGui::PlayerGui() {
     positionSlider.addListener(this);
     addAndMakeVisible(positionSlider);
 
-    // progress bar
     addAndMakeVisible(progressBar);
     progressBar.setPercentageDisplay(true);
 
@@ -41,7 +81,6 @@ PlayerGui::PlayerGui() {
     timeLabel.setText("00:00 / 00:00", juce::dontSendNotification);
     addAndMakeVisible(timeLabel);
 
-    //AB controls
     setMarkerAButton.addListener(this);
     setMarkerBButton.addListener(this);
     abLoopButton.addListener(this);
@@ -55,6 +94,11 @@ PlayerGui::PlayerGui() {
     abMarkersLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     abMarkersLabel.setJustificationType(juce::Justification::centredLeft);
     addAndMakeVisible(abMarkersLabel);
+
+    setMarkerButton.addListener(this);
+    addAndMakeVisible(setMarkerButton);
+    addAndMakeVisible(markersListBox);
+    markersListBox.setModel(&markersListModel);
 
     startTimer(100);
 }
@@ -110,7 +154,12 @@ void PlayerGui::resized()
     timeLabel.setBounds(20, 250, getWidth() - 40, 30);
 
     AddButton.setBounds(20, 290, 120, 30);
-    PlaylistBox.setBounds(20, 320, getWidth() - 40, getHeight() - 420);
+    int rightPanelWidth = 280;
+    int rightPanelX = getWidth() - rightPanelWidth - 20;
+    int leftPanelWidth = rightPanelX - 20;
+    int listY = 320;
+    int listHeight = getHeight() - 420;
+    PlaylistBox.setBounds(20, listY, leftPanelWidth, listHeight);
 
     fileInfoLabel.setBounds(20, 480, getWidth() - 40, 160);
 
@@ -119,6 +168,9 @@ void PlayerGui::resized()
     setMarkerBButton.setBounds(120, y2, 80, 30);
     abLoopButton.setBounds(220, y2, 80, 30);
     clearMarkersButton.setBounds(320, y2, 80, 30);
+
+    setMarkerButton.setBounds(rightPanelX, y2, 120, 30);
+    markersListBox.setBounds(rightPanelX, listY, rightPanelWidth, listHeight);
 
     abMarkersLabel.setBounds(20 + 210, 250, getWidth() - 40 - 210, 30);
 }
@@ -193,6 +245,11 @@ void PlayerGui::buttonClicked(juce::Button* button)
     {
         playerAudio->clearMarkers();
     }
+    else if (button == &setMarkerButton)
+    {
+        playerAudio->addTrackMarker();
+        updateMarkersList();
+    }
     else if (button == &AddButton)
     {
         fileChooser = std::make_unique<juce::FileChooser>(
@@ -233,6 +290,7 @@ void PlayerGui::sliderValueChanged(juce::Slider* slider) {
     else if (slider == &speedSlider && playerAudio != NULL)
     {
         playerAudio->setSpeed(speedSlider.getValue());
+        markersListBox.repaint();
     }
 }
 
@@ -259,8 +317,8 @@ void PlayerGui::timerCallback() {
         juce::String timeText = formatTime(currentTime) + " / " + formatTime(totalTime);
         timeLabel.setText(timeText, juce::dontSendNotification);
 
-        double a = playerAudio->getMarkerA();
-        double b = playerAudio->getMarkerB();
+        double a = playerAudio->getMarkerATime();
+        double b = playerAudio->getMarkerBTime();
         bool active = playerAudio->isABLoopActive();
         juce::String abText = "A-B: ";
         if (a >= 0 && b >= 0 && b > a)
@@ -273,6 +331,8 @@ void PlayerGui::timerCallback() {
             abText += "Not set";
         }
         abMarkersLabel.setText(abText, juce::dontSendNotification);
+        
+        markersListBox.repaint();
     }
 }
 
