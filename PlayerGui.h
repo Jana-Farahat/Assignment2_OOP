@@ -2,6 +2,8 @@
 #include <JuceHeader.h>
 #include "PlayerAudio.h"
 
+class PlayerAudio;
+
 class PlayerGui : public juce::Component,
     public juce::Button::Listener,
     public juce::Slider::Listener,
@@ -20,7 +22,7 @@ public:
     void resized() override;
 
 private:
-    PlayerAudio* playerAudio = NULL;
+    PlayerAudio* playerAudio = nullptr;
 
     juce::TextButton loadButton{ "Load" };
     juce::TextButton restartButton{ "Restart" };
@@ -37,6 +39,9 @@ private:
     juce::TextButton muteButton{ "Mute" };
     bool isDraggingSlider = false;
     juce::Label fileInfoLabel;
+
+    double progressValue = 0.0;
+    juce::ProgressBar progressBar{ progressValue };
 
     //AB controls
     juce::TextButton setMarkerAButton{ "Set A" };

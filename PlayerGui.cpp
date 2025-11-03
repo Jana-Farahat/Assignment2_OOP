@@ -7,7 +7,6 @@ PlayerGui::PlayerGui() {
         addAndMakeVisible(btn);
     }
 
-
     addAndMakeVisible(AddButton);
     addAndMakeVisible(PlaylistBox);
     AddButton.addListener(this);
@@ -27,6 +26,10 @@ PlayerGui::PlayerGui() {
     positionSlider.setValue(0.0);
     positionSlider.addListener(this);
     addAndMakeVisible(positionSlider);
+
+    // progress bar
+    addAndMakeVisible(progressBar);
+    progressBar.setPercentageDisplay(true);
 
     speedSlider.setRange(0.5, 2.0, 0.01);
     speedSlider.setValue(1.0);
@@ -89,8 +92,7 @@ void PlayerGui::paint(juce::Graphics& g) {
 void PlayerGui::resized()
 {
     int y = 20;
-    
-    
+
     loadButton.setBounds(20, y, 80, 40);
     restartButton.setBounds(120, y, 80, 40);
     stopButton.setBounds(220, y, 80, 40);
@@ -101,26 +103,24 @@ void PlayerGui::resized()
     loopButton.setBounds(720, y, 80, 40);
     muteButton.setBounds(820, y, 80, 40);
 
-    
-
     volumeSlider.setBounds(20, 100, getWidth() - 40, 30);
-    positionSlider.setBounds(20, 150, getWidth() - 40, 30);
-    speedSlider.setBounds(20, 190, getWidth() - 40, 30);
-    timeLabel.setBounds(20, 230, getWidth() - 40, 30);
+    progressBar.setBounds(20, 140, getWidth() - 40, 20);
+    positionSlider.setBounds(20, 170, getWidth() - 40, 30);
+    speedSlider.setBounds(20, 210, getWidth() - 40, 30);
+    timeLabel.setBounds(20, 250, getWidth() - 40, 30);
 
-    AddButton.setBounds(20, 270, 120, 30);
-    PlaylistBox.setBounds(20, 300, getWidth() - 40, getHeight() - 400);
+    AddButton.setBounds(20, 290, 120, 30);
+    PlaylistBox.setBounds(20, 320, getWidth() - 40, getHeight() - 420);
 
-    fileInfoLabel.setBounds(20, 460, getWidth() - 40, 160);
+    fileInfoLabel.setBounds(20, 480, getWidth() - 40, 160);
 
-    //AB controls row
     int y2 = 70;
     setMarkerAButton.setBounds(20, y2, 80, 30);
     setMarkerBButton.setBounds(120, y2, 80, 30);
     abLoopButton.setBounds(220, y2, 80, 30);
     clearMarkersButton.setBounds(320, y2, 80, 30);
 
-    abMarkersLabel.setBounds(20 + 210, 230, getWidth() - 40 - 210, 30);
+    abMarkersLabel.setBounds(20 + 210, 250, getWidth() - 40 - 210, 30);
 }
 
 void PlayerGui::buttonClicked(juce::Button* button)
@@ -193,7 +193,7 @@ void PlayerGui::buttonClicked(juce::Button* button)
     {
         playerAudio->clearMarkers();
     }
-    else if(button == &AddButton)
+    else if (button == &AddButton)
     {
         fileChooser = std::make_unique<juce::FileChooser>(
             "Select audio files...",
@@ -207,7 +207,7 @@ void PlayerGui::buttonClicked(juce::Button* button)
                 auto files = fc.getResults();
                 playerAudio->addtoPlaylist(files);
                 PlaylistBox.updateContent();
-                PlaylistBox.repaint(); // Force redraw
+                PlaylistBox.repaint();
             });
     }
 }
@@ -217,7 +217,7 @@ void PlayerGui::selectedRowsChanged(int row)
     {
         playerAudio->loadFromPlaylist(row);
         fileInfoLabel.setText(playerAudio->getMetadataInfo(), juce::dontSendNotification);
-        PlaylistBox.repaint(); 
+        PlaylistBox.repaint();
     }
 }
 
@@ -251,6 +251,7 @@ void PlayerGui::sliderDragEnded(juce::Slider* slider) {
 void PlayerGui::timerCallback() {
     if (playerAudio != NULL && !isDraggingSlider) {
         positionSlider.setValue(playerAudio->getPositionNormalized());
+        progressValue = playerAudio->getPositionNormalized();
 
         double currentTime = playerAudio->getPosition();
         double totalTime = playerAudio->getLength();
@@ -258,7 +259,6 @@ void PlayerGui::timerCallback() {
         juce::String timeText = formatTime(currentTime) + " / " + formatTime(totalTime);
         timeLabel.setText(timeText, juce::dontSendNotification);
 
-        // Update AB markers label
         double a = playerAudio->getMarkerA();
         double b = playerAudio->getMarkerB();
         bool active = playerAudio->isABLoopActive();
