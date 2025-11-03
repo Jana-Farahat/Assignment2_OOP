@@ -12,6 +12,8 @@ private:
     bool isMuted = false;
     float lastGain = 1.0f;
 
+    double currentSampleRate = 0.0;
+
 public:
     PlayerAudio();
     ~PlayerAudio();
@@ -20,7 +22,7 @@ public:
     void releaseResources();
 
     bool loadFile(const juce::File& file);
-    juce::String getMetadataInfo() ;
+    juce::String getMetadataInfo();
     juce::String formatTime(double seconds);
     void play();
     void restart();
@@ -30,6 +32,7 @@ public:
     void goToStart();
     void loop();
     void setGain(float gain);
+    void setGain(float gain, bool isMute);
     void setPosition(double pos);
     double getPosition() const;
     double getLength() const;
@@ -37,7 +40,7 @@ public:
     double getPositionNormalized() const;
     bool isLoopingEnabled() const { return isLooping; }
     void performLoop();
-    void setGain(float gain, bool isMute);
+    void setSpeed(double speed);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerAudio)
 };

@@ -1,11 +1,12 @@
 #include "PlayerGui.h"
+
 PlayerGui::PlayerGui() {
-    for (auto* btn : { &loadButton, &restartButton , &stopButton, &pauseButton , &playButton, &goToEndButton, &loopButton,&muteButton, &goToStartButton })
+    for (auto* btn : { &loadButton, &restartButton , &stopButton, &pauseButton , &playButton, &goToEndButton, &loopButton, &muteButton, &goToStartButton })
     {
         btn->addListener(this);
         addAndMakeVisible(btn);
     }
-    
+
     fileInfoLabel.setText("No file loaded", juce::dontSendNotification);
     fileInfoLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     fileInfoLabel.setJustificationType(juce::Justification::centred);
@@ -21,18 +22,25 @@ PlayerGui::PlayerGui() {
     positionSlider.addListener(this);
     addAndMakeVisible(positionSlider);
 
+    speedSlider.setRange(0.5, 2.0, 0.01);
+    speedSlider.setValue(1.0);
+    speedSlider.setTextValueSuffix("x");
+    speedSlider.setNumDecimalPlacesToDisplay(2);
+    speedSlider.addListener(this);
+    addAndMakeVisible(speedSlider);
+
     timeLabel.setText("00:00 / 00:00", juce::dontSendNotification);
     addAndMakeVisible(timeLabel);
+
     startTimer(100);
 }
+
 PlayerGui::~PlayerGui()
 {
-
 }
+
 void PlayerGui::paint(juce::Graphics& g) {
     g.fillAll(juce::Colours::darkgrey);
-
-
 }
 
 void PlayerGui::resized()
@@ -47,19 +55,19 @@ void PlayerGui::resized()
     goToStartButton.setBounds(620, y, 80, 40);
     loopButton.setBounds(720, y, 80, 40);
     muteButton.setBounds(820, y, 80, 40);
-    
+
     auto area = getLocalBounds();
     fileInfoLabel.setBounds(area.removeFromBottom(200));
 
     volumeSlider.setBounds(20, 100, getWidth() - 40, 30);
-
     positionSlider.setBounds(20, 150, getWidth() - 40, 30);
-    timeLabel.setBounds(20, 180, getWidth() - 40, 30);
+    speedSlider.setBounds(20, 190, getWidth() - 40, 30);
+    timeLabel.setBounds(20, 230, getWidth() - 40, 30);
 }
 
 void PlayerGui::buttonClicked(juce::Button* button)
 {
-    if (playerAudio == nullptr) return;
+    if (playerAudio == NULL) return;
 
     if (button == &loadButton)
     {
@@ -114,13 +122,17 @@ void PlayerGui::buttonClicked(juce::Button* button)
 }
 
 void PlayerGui::sliderValueChanged(juce::Slider* slider) {
-    if (slider == &volumeSlider && playerAudio != nullptr) {
+    if (slider == &volumeSlider && playerAudio != NULL) {
         playerAudio->setGain((float)volumeSlider.getValue());
     }
-    else if (slider == &positionSlider && playerAudio != nullptr) {
+    else if (slider == &positionSlider && playerAudio != NULL) {
         if (isDraggingSlider) {
             playerAudio->setPositionNormalized(positionSlider.getValue());
         }
+    }
+    else if (slider == &speedSlider && playerAudio != NULL)
+    {
+        playerAudio->setSpeed(speedSlider.getValue());
     }
 }
 
@@ -137,11 +149,9 @@ void PlayerGui::sliderDragEnded(juce::Slider* slider) {
 }
 
 void PlayerGui::timerCallback() {
-    if (playerAudio != nullptr && !isDraggingSlider) {
-        // Update position slider
+    if (playerAudio != NULL && !isDraggingSlider) {
         positionSlider.setValue(playerAudio->getPositionNormalized());
 
-        // Update time display
         double currentTime = playerAudio->getPosition();
         double totalTime = playerAudio->getLength();
 

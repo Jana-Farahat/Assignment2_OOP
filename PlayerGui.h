@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <JuceHeader.h>
 #include "PlayerAudio.h"
+
 class PlayerGui : public juce::Component,
     public juce::Button::Listener,
     public juce::Slider::Listener,
@@ -13,13 +14,12 @@ public:
     void setPlayerAudio(PlayerAudio* audio) {
         playerAudio = audio;
     }
+
     void paint(juce::Graphics& g) override;
     void resized() override;
-  
 
 private:
-    PlayerAudio* playerAudio = nullptr; //to be connected to player audio
-
+    PlayerAudio* playerAudio = NULL;
 
     juce::TextButton loadButton{ "Load" };
     juce::TextButton restartButton{ "Restart" };
@@ -31,11 +31,11 @@ private:
     juce::TextButton loopButton{ "Loop" };
     juce::Slider volumeSlider;
     juce::Slider positionSlider;
+    juce::Slider speedSlider;
     juce::Label timeLabel;
     juce::TextButton muteButton{ "Mute" };
     bool isDraggingSlider = false;
     juce::Label fileInfoLabel;
-
 
     std::unique_ptr<juce::FileChooser> fileChooser;
 
@@ -45,4 +45,6 @@ private:
     void sliderDragEnded(juce::Slider* slider) override;
     void timerCallback() override;
     juce::String formatTime(double seconds);
+
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerGui)
 };
