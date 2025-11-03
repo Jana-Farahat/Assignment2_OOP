@@ -47,6 +47,9 @@ bool PlayerAudio::loadFile(const juce::File& file) {
                 NULL,
                 currentSampleRate);
 
+            // Clear A-B markers on new file load
+            clearMarkers();
+
             loadedFile = file;
             return true;
         }
@@ -150,7 +153,19 @@ void PlayerAudio::loop() {
 }
 
 void PlayerAudio::performLoop() {
-    if (isLooping && transportSource.hasStreamFinished()) {
+    //AB loop has priority over regular loop
+    if (isABLoopActive()) {
+        double currentPos = transportSource.getCurrentPosition();
+        if (currentPos >= markerB || currentPos < markerA || transportSource.hasStreamFinished())
+        {
+            transportSource.setPosition(markerA);
+            if (!transportSource.isPlaying())
+            {
+                transportSource.start();
+            }
+        }
+    }
+    else if (isLooping && transportSource.hasStreamFinished()) {
         transportSource.setPosition(0.0);
         transportSource.start();
     }
@@ -230,5 +245,41 @@ void PlayerAudio::setSpeed(double speed)
         transportSource.setPosition(pos);
         if (playing)
             transportSource.start();
+    }
+}
+
+// A-B loop methods
+void PlayerAudio::setMarkerA() {
+    markerA = transportSource.getCurrentPosition();
+    if (markerA < 0) markerA = 0.0;
+    double length = transportSource.getLengthInSeconds();
+    if (markerA > length) markerA = length;
+    if (markerB >= 0 && markerA >= markerB) {
+        markerB = -1.0;
+    }
+}
+
+void PlayerAudio::setMarkerB() {
+    markerB = transportSource.getCurrentPosition();
+    if (markerB < 0) 
+    markerB = 0.0;
+    double length = transportSource.getLengthInSeconds();
+    if (markerB > length) 
+    markerB = length;
+    if (markerA >= 0 && markerB <= markerA) {
+        markerA = -1.0;
+    }
+}
+
+void PlayerAudio::clearMarkers() {
+    markerA = -1.0;
+    markerB = -1.0;
+    isABLoopEnabled = false;
+}
+
+void PlayerAudio::toggleABLoop() {
+    isABLoopEnabled = !isABLoopEnabled;
+    if (isABLoopEnabled && (markerA < 0 || markerB < 0 || markerB <= markerA)) {
+        isABLoopEnabled = false;
     }
 }

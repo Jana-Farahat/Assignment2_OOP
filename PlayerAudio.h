@@ -16,6 +16,11 @@ private:
 
     double currentSampleRate = 0.0;
 
+    // A-B loop state
+    bool isABLoopEnabled = false;
+    double markerA = -1.0;
+    double markerB = -1.0;
+
 public:
     juce::Array<juce::File> playlist;
     PlayerAudio();
@@ -46,5 +51,14 @@ public:
     void setSpeed(double speed);
     void addtoPlaylist(const juce::Array<juce::File>& files);
     void loadFromPlaylist(int i);
+
+    // A-B loop API
+    void setMarkerA();
+    void setMarkerB();
+    void clearMarkers();
+    void toggleABLoop();
+    double getMarkerA() const { return markerA; }
+    double getMarkerB() const { return markerB; }
+    bool isABLoopActive() const { return isABLoopEnabled && markerA >= 0 && markerB >= 0 && markerB > markerA; }
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerAudio)
 };

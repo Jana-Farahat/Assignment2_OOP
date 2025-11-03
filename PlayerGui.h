@@ -38,6 +38,13 @@ private:
     bool isDraggingSlider = false;
     juce::Label fileInfoLabel;
 
+    //AB controls
+    juce::TextButton setMarkerAButton{ "Set A" };
+    juce::TextButton setMarkerBButton{ "Set B" };
+    juce::TextButton abLoopButton{ "A-B Loop" };
+    juce::TextButton clearMarkersButton{ "Clear A-B" };
+    juce::Label abMarkersLabel;
+
     std::unique_ptr<juce::FileChooser> fileChooser;
 
     void buttonClicked(juce::Button* button) override;

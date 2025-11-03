@@ -38,6 +38,21 @@ PlayerGui::PlayerGui() {
     timeLabel.setText("00:00 / 00:00", juce::dontSendNotification);
     addAndMakeVisible(timeLabel);
 
+    //AB controls
+    setMarkerAButton.addListener(this);
+    setMarkerBButton.addListener(this);
+    abLoopButton.addListener(this);
+    clearMarkersButton.addListener(this);
+    addAndMakeVisible(setMarkerAButton);
+    addAndMakeVisible(setMarkerBButton);
+    addAndMakeVisible(abLoopButton);
+    addAndMakeVisible(clearMarkersButton);
+
+    abMarkersLabel.setText("A-B: Not set", juce::dontSendNotification);
+    abMarkersLabel.setColour(juce::Label::textColourId, juce::Colours::white);
+    abMarkersLabel.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(abMarkersLabel);
+
     startTimer(100);
 }
 
@@ -97,6 +112,15 @@ void PlayerGui::resized()
     PlaylistBox.setBounds(20, 300, getWidth() - 40, getHeight() - 400);
 
     fileInfoLabel.setBounds(20, 460, getWidth() - 40, 160);
+
+    //AB controls row
+    int y2 = 70;
+    setMarkerAButton.setBounds(20, y2, 80, 30);
+    setMarkerBButton.setBounds(120, y2, 80, 30);
+    abLoopButton.setBounds(220, y2, 80, 30);
+    clearMarkersButton.setBounds(320, y2, 80, 30);
+
+    abMarkersLabel.setBounds(20 + 210, 230, getWidth() - 40 - 210, 30);
 }
 
 void PlayerGui::buttonClicked(juce::Button* button)
@@ -152,6 +176,22 @@ void PlayerGui::buttonClicked(juce::Button* button)
     else if (button == &muteButton)
     {
         playerAudio->setGain(0.0f, true);
+    }
+    else if (button == &setMarkerAButton)
+    {
+        playerAudio->setMarkerA();
+    }
+    else if (button == &setMarkerBButton)
+    {
+        playerAudio->setMarkerB();
+    }
+    else if (button == &abLoopButton)
+    {
+        playerAudio->toggleABLoop();
+    }
+    else if (button == &clearMarkersButton)
+    {
+        playerAudio->clearMarkers();
     }
     else if(button == &AddButton)
     {
@@ -217,6 +257,22 @@ void PlayerGui::timerCallback() {
 
         juce::String timeText = formatTime(currentTime) + " / " + formatTime(totalTime);
         timeLabel.setText(timeText, juce::dontSendNotification);
+
+        // Update AB markers label
+        double a = playerAudio->getMarkerA();
+        double b = playerAudio->getMarkerB();
+        bool active = playerAudio->isABLoopActive();
+        juce::String abText = "A-B: ";
+        if (a >= 0 && b >= 0 && b > a)
+        {
+            abText += "A=" + formatTime(a) + "  B=" + formatTime(b);
+            abText += active ? "  LOOPING" : "  OFF";
+        }
+        else
+        {
+            abText += "Not set";
+        }
+        abMarkersLabel.setText(abText, juce::dontSendNotification);
     }
 }
 
