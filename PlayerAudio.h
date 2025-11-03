@@ -7,6 +7,8 @@ private:
     std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
     juce::AudioTransportSource transportSource;
 
+
+    
     bool isLooping = false;
     bool wasPlaying = false;
     bool isMuted = false;
@@ -15,6 +17,7 @@ private:
     double currentSampleRate = 0.0;
 
 public:
+    juce::Array<juce::File> playlist;
     PlayerAudio();
     ~PlayerAudio();
     void prepareToPlay(int samplesPerBlockExpected, double sampleRate);
@@ -41,6 +44,7 @@ public:
     bool isLoopingEnabled() const { return isLooping; }
     void performLoop();
     void setSpeed(double speed);
-
+    void addtoPlaylist(const juce::Array<juce::File>& files);
+    void loadFromPlaylist(int i);
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerAudio)
 };

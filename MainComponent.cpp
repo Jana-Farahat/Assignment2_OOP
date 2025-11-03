@@ -6,7 +6,7 @@ MainComponent::MainComponent()
 {
     playerGui.setPlayerAudio(&playerAudio);
     addAndMakeVisible(playerGui);
-    setSize(800, 250);
+    setSize(900, 600);
     setAudioChannels(0, 2);
 
 

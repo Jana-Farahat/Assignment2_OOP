@@ -5,7 +5,8 @@
 class PlayerGui : public juce::Component,
     public juce::Button::Listener,
     public juce::Slider::Listener,
-    public juce::Timer
+    public juce::Timer,
+    public juce::ListBoxModel
 {
 public:
     PlayerGui();
@@ -45,6 +46,13 @@ private:
     void sliderDragEnded(juce::Slider* slider) override;
     void timerCallback() override;
     juce::String formatTime(double seconds);
+
+    juce::ListBox PlaylistBox;
+    juce::TextButton AddButton{"Add Files"};
+    int getNumRows() override;
+    void paintListBoxItem(int rowNumber, juce::Graphics& g,int width, int height, bool rowIsSelected) override;
+
+    void selectedRowsChanged(int lastRowSelected) override;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerGui)
 };

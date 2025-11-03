@@ -7,6 +7,12 @@ PlayerGui::PlayerGui() {
         addAndMakeVisible(btn);
     }
 
+
+    addAndMakeVisible(AddButton);
+    addAndMakeVisible(PlaylistBox);
+    AddButton.addListener(this);
+    PlaylistBox.setModel(this);
+
     fileInfoLabel.setText("No file loaded", juce::dontSendNotification);
     fileInfoLabel.setColour(juce::Label::textColourId, juce::Colours::white);
     fileInfoLabel.setJustificationType(juce::Justification::centred);
@@ -35,8 +41,30 @@ PlayerGui::PlayerGui() {
     startTimer(100);
 }
 
+int PlayerGui::getNumRows()
+{
+    if (playerAudio == nullptr)
+        return 0;
+
+    return playerAudio->playlist.size();
+}
+
 PlayerGui::~PlayerGui()
 {
+}
+
+void PlayerGui::paintListBoxItem(int row, juce::Graphics& g,
+    int width, int height, bool rowIsSelected)
+{
+    if (playerAudio == nullptr || row >= playerAudio->playlist.size())
+        return;
+
+    if (rowIsSelected)
+        g.fillAll(juce::Colours::lightblue);
+
+    g.setColour(juce::Colours::white);
+    g.drawText(playerAudio->playlist[row].getFileName(),
+        4, 0, width, height, juce::Justification::centredLeft);
 }
 
 void PlayerGui::paint(juce::Graphics& g) {
@@ -46,6 +74,8 @@ void PlayerGui::paint(juce::Graphics& g) {
 void PlayerGui::resized()
 {
     int y = 20;
+    
+    
     loadButton.setBounds(20, y, 80, 40);
     restartButton.setBounds(120, y, 80, 40);
     stopButton.setBounds(220, y, 80, 40);
@@ -56,13 +86,17 @@ void PlayerGui::resized()
     loopButton.setBounds(720, y, 80, 40);
     muteButton.setBounds(820, y, 80, 40);
 
-    auto area = getLocalBounds();
-    fileInfoLabel.setBounds(area.removeFromBottom(200));
+    
 
     volumeSlider.setBounds(20, 100, getWidth() - 40, 30);
     positionSlider.setBounds(20, 150, getWidth() - 40, 30);
     speedSlider.setBounds(20, 190, getWidth() - 40, 30);
     timeLabel.setBounds(20, 230, getWidth() - 40, 30);
+
+    AddButton.setBounds(20, 270, 120, 30);
+    PlaylistBox.setBounds(20, 300, getWidth() - 40, getHeight() - 400);
+
+    fileInfoLabel.setBounds(20, 460, getWidth() - 40, 160);
 }
 
 void PlayerGui::buttonClicked(juce::Button* button)
@@ -118,6 +152,32 @@ void PlayerGui::buttonClicked(juce::Button* button)
     else if (button == &muteButton)
     {
         playerAudio->setGain(0.0f, true);
+    }
+    else if(button == &AddButton)
+    {
+        fileChooser = std::make_unique<juce::FileChooser>(
+            "Select audio files...",
+            juce::File{},
+            "*.wav;*.mp3");
+
+        fileChooser->launchAsync(
+            juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectMultipleItems,
+            [this](const juce::FileChooser& fc)
+            {
+                auto files = fc.getResults();
+                playerAudio->addtoPlaylist(files);
+                PlaylistBox.updateContent();
+                PlaylistBox.repaint(); // Force redraw
+            });
+    }
+}
+void PlayerGui::selectedRowsChanged(int row)
+{
+    if (playerAudio != nullptr && row >= 0 && row < playerAudio->playlist.size())
+    {
+        playerAudio->loadFromPlaylist(row);
+        fileInfoLabel.setText(playerAudio->getMetadataInfo(), juce::dontSendNotification);
+        PlaylistBox.repaint(); 
     }
 }
 

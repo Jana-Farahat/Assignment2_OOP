@@ -65,31 +65,58 @@ juce::String PlayerAudio::getMetadataInfo()
         info += "File: " + loadedFile.getFileName() + "\n";
         info += "Size: " + juce::String(loadedFile.getSize() / 1024) + " KB\n";
         info += "Duration: " + formatTime(reader->lengthInSamples / reader->sampleRate) + "\n";
+        
+        juce::StringPairArray  metadata = reader->metadataValues;
+        
+        juce::String author;
+        author = metadata.getValue("artist", "");
+        if (author.isEmpty())
+            author = metadata.getValue("composer", "");
+        if (author.isEmpty())
+            author = metadata.getValue("albumartist", "");
+        if (author.isEmpty())
+            author = metadata.getValue("author", "");
 
-        juce::StringPairArray metadata = reader->metadataValues;
+        info += "Author: " + (author.isEmpty() ? "Unknown" : author) + "\n";
+
+        ///If there exist a metadata it will print the following
 
         if (metadata.size() > 0)
         {
-            info += "All metadata keys:\n";
+            info += "Metadata keys:\n";
             juce::StringArray keys = metadata.getAllKeys();
 
-            for (int i = 0; i < keys.size(); ++i)
+            for (int i = 0; i < keys.size(); i++)
             {
                 juce::String key = keys[i];
                 juce::String value = metadata.getValue(key, "EMPTY");
-                info += key + "' = '" + value + "'\n";
+                info += key + " = " + value + "'\n";
             }
         }
         else
         {
-            info += "NO METADATA FOUND - File may not contain ID3 tags\n";
+            info += "NO METADATA FOUND \n";
         }
-
         return info;
     }
 
     return "Error reading file";
 }
+
+void PlayerAudio::addtoPlaylist(const juce::Array<juce::File>& files) {
+
+    for (auto& f : files) {
+        playlist.add(f);
+    }
+
+}
+
+void PlayerAudio::loadFromPlaylist(int i) {
+    juce::File file(playlist[i]);
+    loadFile(file);
+}
+
+
 
 void PlayerAudio::play() {
     transportSource.start();
