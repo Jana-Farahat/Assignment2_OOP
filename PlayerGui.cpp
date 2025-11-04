@@ -6,7 +6,10 @@ int ListModel::getNumRows() {
         return playerAudio->getMarkerCount() + 1;
     }
     else {
-        return playerAudio->playlist.size() + 1;
+        PlayerAudio* targetAudio = playerAudio;
+        if (listMode == ListMode::PlaylistRight && playerAudioRight != nullptr)
+            targetAudio = playerAudioRight;
+        return targetAudio->playlist.size() + 1;
     }
 }
 
@@ -24,7 +27,10 @@ void ListModel::paintListBoxItem(int row, juce::Graphics& g, int width, int heig
             int trackColWidth = (int)(width * 0.4f);
             int durationColWidth = (int)(width * 0.25f);
             g.drawText("Track", 4, 0, trackColWidth, height, juce::Justification::centredLeft);
-            g.drawText("Duration", trackColWidth + 4, 0, durationColWidth, height, juce::Justification::centredLeft);
+            g.drawText("Duration (HH:MM:SS)", trackColWidth + 4, 0, durationColWidth, height, juce::Justification::centredLeft);
+            g.setColour(juce::Colours::grey);
+            g.drawLine((float)(trackColWidth + 2), 0.0f, (float)(trackColWidth + 2), (float)height, 1.0f);
+            g.drawLine((float)(trackColWidth + durationColWidth + 2), 0.0f, (float)(trackColWidth + durationColWidth + 2), (float)height, 1.0f);
         }
         else {
             int markerColWidth = (int)(width * 0.5f);
@@ -43,7 +49,16 @@ juce::Component* ListModel::refreshComponentForRow(int rowNumber, bool isRowSele
     }
     
     int dataRowNumber = rowNumber - 1;
-    int maxRows = (listMode == ListMode::Markers) ? playerAudio->getMarkerCount() : playerAudio->playlist.size();
+    int maxRows;
+    if (listMode == ListMode::Markers) {
+        maxRows = playerAudio->getMarkerCount();
+    }
+    else {
+        PlayerAudio* targetAudio = playerAudio;
+        if (listMode == ListMode::PlaylistRight && playerAudioRight != nullptr)
+            targetAudio = playerAudioRight;
+        maxRows = targetAudio->playlist.size();
+    }
     if (dataRowNumber < 0 || dataRowNumber >= maxRows) {
         if (existingComponentToUpdate != nullptr)
             existingComponentToUpdate->setVisible(false);
@@ -53,12 +68,18 @@ juce::Component* ListModel::refreshComponentForRow(int rowNumber, bool isRowSele
     auto createComponent = [this](int row) {
         std::function<void()> callback;
         if (listMode == ListMode::Markers) {
-            callback = [this]() { playerGui->updateMarkersList(); };
+            if (playerAudio == playerGui->playerAudioLeft)
+                callback = [this]() { playerGui->updateMarkersListLeft(); };
+            else
+                callback = [this]() { playerGui->updateMarkersListRight(); };
         }
         else {
             callback = [this]() { playerGui->updatePlaylist(); };
         }
-        return new ListRowComponent(playerAudio, playerGui, row, listMode, callback);
+        PlayerAudio* targetAudioRight = playerAudioRight;
+        if (listMode == ListMode::Markers && playerAudio == playerGui->playerAudioLeft)
+            targetAudioRight = nullptr;
+        return new ListRowComponent(playerAudio, targetAudioRight, playerGui, row, listMode, callback);
     };
 
     if (auto* rowComp = dynamic_cast<ListRowComponent*>(existingComponentToUpdate)) {
@@ -76,24 +97,38 @@ void ListModel::selectedRowsChanged(int row) {
 }
 
 void ListRowComponent::buttonClicked(juce::Button* button) {
-    if (playerAudio == nullptr)
-        return;
     if (button == &actionButton) {
         if (rowMode == ListMode::Markers) {
-            playerAudio->jumpToMarker(index);
+            if (playerAudio != nullptr)
+                playerAudio->jumpToMarker(index);
         }
-        else {
-            playerAudio->loadFromPlaylist(index);
-            if (playerGui != nullptr)
-                playerGui->updateMetadata();
+    }
+    else if (button == &playLeftButton) {
+        if (playerGui != nullptr && playerGui->playerAudioLeft != nullptr) {
+            if (index >= 0 && index < playerGui->playerAudioLeft->playlist.size()) {
+                juce::File file = playerGui->playerAudioLeft->playlist[index];
+                playerGui->playerAudioLeft->loadFile(file);
+                playerGui->updateMetadataLeft();
+            }
+        }
+    }
+    else if (button == &playRightButton) {
+        if (playerGui != nullptr && playerGui->playerAudioRight != nullptr && playerGui->playerAudioLeft != nullptr) {
+            if (index >= 0 && index < playerGui->playerAudioLeft->playlist.size()) {
+                juce::File file = playerGui->playerAudioLeft->playlist[index];
+                playerGui->playerAudioRight->loadFile(file);
+                playerGui->updateMetadataRight();
+            }
         }
     }
     else if (button == &removeButton) {
         if (rowMode == ListMode::Markers) {
-            playerAudio->removeTrackMarker(index);
+            if (playerAudio != nullptr)
+                playerAudio->removeTrackMarker(index);
         }
         else {
-            playerAudio->playlist.remove(index);
+            if (playerGui != nullptr && playerGui->playerAudioLeft != nullptr)
+                playerGui->playerAudioLeft->playlist.remove(index);
         }
         if (updateCallback)
             updateCallback();
@@ -103,20 +138,39 @@ void ListRowComponent::buttonClicked(juce::Button* button) {
 
 PlayerGui::PlayerGui() {
 
-    setupIconButton(&playButton, loadIconFromBinary(BinaryData::play_png, BinaryData::play_pngSize));
-    setupIconButton(&pauseButton, loadIconFromBinary(BinaryData::pause_png, BinaryData::pause_pngSize));
-    setupIconButton(&forward10sButton, loadIconFromBinary(BinaryData::_10forward_png, BinaryData::_10forward_pngSize));
-    setupIconButton(&backward10sButton, loadIconFromBinary(BinaryData::_10backward_png, BinaryData::_10backward_pngSize));
-    setupIconButton(&goToStartButton, loadIconFromBinary(BinaryData::start_png, BinaryData::start_pngSize));
-    setupIconButton(&goToEndButton, loadIconFromBinary(BinaryData::end_png, BinaryData::end_pngSize));
-    setupIconButton(&restartButton, loadIconFromBinary(BinaryData::restart_png, BinaryData::restart_pngSize));
-    setupIconButton(&stopButton, loadIconFromBinary(BinaryData::stop_png, BinaryData::stop_pngSize));
-    setupIconButton(&loopButton, loadIconFromBinary(BinaryData::loop_png, BinaryData::loop_pngSize));
-    setupIconButton(&muteButton, loadIconFromBinary(BinaryData::unmuted_png, BinaryData::unmuted_pngSize));
-    setupIconButton(&loadButton, loadIconFromBinary(BinaryData::folder_png, BinaryData::folder_pngSize));
-    setupIconButton(&setMarkerButton, loadIconFromBinary(BinaryData::markerflag_png, BinaryData::markerflag_pngSize));
+    setupIconButton(&playButtonLeft, loadIconFromBinary(BinaryData::play_png, BinaryData::play_pngSize));
+    setupIconButton(&pauseButtonLeft, loadIconFromBinary(BinaryData::pause_png, BinaryData::pause_pngSize));
+    setupIconButton(&forward10sButtonLeft, loadIconFromBinary(BinaryData::_10forward_png, BinaryData::_10forward_pngSize));
+    setupIconButton(&backward10sButtonLeft, loadIconFromBinary(BinaryData::_10backward_png, BinaryData::_10backward_pngSize));
+    setupIconButton(&goToStartButtonLeft, loadIconFromBinary(BinaryData::start_png, BinaryData::start_pngSize));
+    setupIconButton(&goToEndButtonLeft, loadIconFromBinary(BinaryData::end_png, BinaryData::end_pngSize));
+    setupIconButton(&restartButtonLeft, loadIconFromBinary(BinaryData::restart_png, BinaryData::restart_pngSize));
+    setupIconButton(&stopButtonLeft, loadIconFromBinary(BinaryData::stop_png, BinaryData::stop_pngSize));
+    setupIconButton(&loopButtonLeft, loadIconFromBinary(BinaryData::loop_png, BinaryData::loop_pngSize));
+    setupIconButton(&muteButtonLeft, loadIconFromBinary(BinaryData::unmuted_png, BinaryData::unmuted_pngSize));
+    setupIconButton(&loadButtonLeft, loadIconFromBinary(BinaryData::folder_png, BinaryData::folder_pngSize));
+    setupIconButton(&setMarkerButtonLeft, loadIconFromBinary(BinaryData::markerflag_png, BinaryData::markerflag_pngSize));
   
-    for (auto* btn : { &loadButton, &restartButton , &stopButton, &pauseButton , &playButton, &goToEndButton, &loopButton, &muteButton, &goToStartButton, &forward10sButton, &backward10sButton, &setMarkerButton })
+    for (auto* btn : { &loadButtonLeft, &restartButtonLeft, &stopButtonLeft, &pauseButtonLeft, &playButtonLeft, &goToEndButtonLeft, &loopButtonLeft, &muteButtonLeft, &goToStartButtonLeft, &forward10sButtonLeft, &backward10sButtonLeft, &setMarkerButtonLeft })
+    {
+        btn->addListener(this);
+        addAndMakeVisible(btn);
+    }
+
+    setupIconButton(&playButtonRight, loadIconFromBinary(BinaryData::play_png, BinaryData::play_pngSize));
+    setupIconButton(&pauseButtonRight, loadIconFromBinary(BinaryData::pause_png, BinaryData::pause_pngSize));
+    setupIconButton(&forward10sButtonRight, loadIconFromBinary(BinaryData::_10forward_png, BinaryData::_10forward_pngSize));
+    setupIconButton(&backward10sButtonRight, loadIconFromBinary(BinaryData::_10backward_png, BinaryData::_10backward_pngSize));
+    setupIconButton(&goToStartButtonRight, loadIconFromBinary(BinaryData::start_png, BinaryData::start_pngSize));
+    setupIconButton(&goToEndButtonRight, loadIconFromBinary(BinaryData::end_png, BinaryData::end_pngSize));
+    setupIconButton(&restartButtonRight, loadIconFromBinary(BinaryData::restart_png, BinaryData::restart_pngSize));
+    setupIconButton(&stopButtonRight, loadIconFromBinary(BinaryData::stop_png, BinaryData::stop_pngSize));
+    setupIconButton(&loopButtonRight, loadIconFromBinary(BinaryData::loop_png, BinaryData::loop_pngSize));
+    setupIconButton(&muteButtonRight, loadIconFromBinary(BinaryData::unmuted_png, BinaryData::unmuted_pngSize));
+    setupIconButton(&loadButtonRight, loadIconFromBinary(BinaryData::folder_png, BinaryData::folder_pngSize));
+    setupIconButton(&setMarkerButtonRight, loadIconFromBinary(BinaryData::markerflag_png, BinaryData::markerflag_pngSize));
+  
+    for (auto* btn : { &loadButtonRight, &restartButtonRight, &stopButtonRight, &pauseButtonRight, &playButtonRight, &goToEndButtonRight, &loopButtonRight, &muteButtonRight, &goToStartButtonRight, &forward10sButtonRight, &backward10sButtonRight, &setMarkerButtonRight })
     {
         btn->addListener(this);
         addAndMakeVisible(btn);
@@ -128,67 +182,114 @@ PlayerGui::PlayerGui() {
     loadFilesButton.setVisible(true);
     addAndMakeVisible(&loadFilesButton);
     addAndMakeVisible(PlaylistBox);
+    addAndMakeVisible(markersListBoxLeft);
+    addAndMakeVisible(markersListBoxRight);
 
-    fileInfoLabel.setText("Currently playing:\nNo file loaded", juce::dontSendNotification);
-    fileInfoLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    fileInfoLabel.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(fileInfoLabel);
+    fileInfoLabelLeft.setText("Currently playing:\nNo file loaded", juce::dontSendNotification);
+    fileInfoLabelLeft.setColour(juce::Label::textColourId, juce::Colours::white);
+    fileInfoLabelLeft.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(fileInfoLabelLeft);
 
-    volumeSlider.setRange(0.0, 1.0, 0.01);
-    volumeSlider.setValue(1.0);
-    volumeSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-    volumeSlider.addListener(this);
-    addAndMakeVisible(volumeSlider);
+    fileInfoLabelRight.setText("Currently playing:\nNo file loaded", juce::dontSendNotification);
+    fileInfoLabelRight.setColour(juce::Label::textColourId, juce::Colours::white);
+    fileInfoLabelRight.setJustificationType(juce::Justification::centred);
+    addAndMakeVisible(fileInfoLabelRight);
 
-    positionSlider.setRange(0.0, 1.0, 0.0001);
-    positionSlider.setValue(0.0);
-    positionSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-    positionSlider.addListener(this);
-    addAndMakeVisible(positionSlider);
+    volumeSliderLeft.setRange(0.0, 1.0, 0.01);
+    volumeSliderLeft.setValue(1.0);
+    volumeSliderLeft.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    volumeSliderLeft.addListener(this);
+    addAndMakeVisible(volumeSliderLeft);
 
-    addAndMakeVisible(progressBar);
-    progressBar.setPercentageDisplay(true);
+    positionSliderLeft.setRange(0.0, 1.0, 0.0001);
+    positionSliderLeft.setValue(0.0);
+    positionSliderLeft.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    positionSliderLeft.addListener(this);
+    addAndMakeVisible(positionSliderLeft);
 
-    speedSlider.setRange(0.5, 2.0, 0.01);
-    speedSlider.setValue(1.0);
-    speedSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
-    speedSlider.addListener(this);
-    addAndMakeVisible(speedSlider);
+    addAndMakeVisible(progressBarLeft);
+    progressBarLeft.setPercentageDisplay(true);
+
+    speedSliderLeft.setRange(0.5, 2.0, 0.01);
+    speedSliderLeft.setValue(1.0);
+    speedSliderLeft.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    speedSliderLeft.addListener(this);
+    addAndMakeVisible(speedSliderLeft);
     
-    speedLabel.setText("1.00x", juce::dontSendNotification);
-    speedLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    speedLabel.setJustificationType(juce::Justification::centredLeft);
-    addAndMakeVisible(speedLabel);
+    speedLabelLeft.setText("1.00x", juce::dontSendNotification);
+    speedLabelLeft.setColour(juce::Label::textColourId, juce::Colours::white);
+    speedLabelLeft.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(speedLabelLeft);
 
-    timeLabel.setText("00:00 / 00:00", juce::dontSendNotification);
-    addAndMakeVisible(timeLabel);
+    timeLabelLeft.setText("00:00:00 / 00:00:00", juce::dontSendNotification);
+    addAndMakeVisible(timeLabelLeft);
 
-    setMarkerAButton.addListener(this);
-    setMarkerBButton.addListener(this);
-    abLoopButton.addListener(this);
-    clearMarkersButton.addListener(this);
-    addAndMakeVisible(setMarkerAButton);
-    addAndMakeVisible(setMarkerBButton);
-    addAndMakeVisible(abLoopButton);
-    addAndMakeVisible(clearMarkersButton);
+    setMarkerAButtonLeft.addListener(this);
+    setMarkerBButtonLeft.addListener(this);
+    abLoopButtonLeft.addListener(this);
+    clearMarkersButtonLeft.addListener(this);
+    addAndMakeVisible(setMarkerAButtonLeft);
+    addAndMakeVisible(setMarkerBButtonLeft);
+    addAndMakeVisible(abLoopButtonLeft);
+    addAndMakeVisible(clearMarkersButtonLeft);
 
-    abMarkersLabel.setText("A-B: Not set", juce::dontSendNotification);
-    abMarkersLabel.setColour(juce::Label::textColourId, juce::Colours::white);
-    abMarkersLabel.setJustificationType(juce::Justification::centredLeft);
-    addAndMakeVisible(abMarkersLabel);
+    abMarkersLabelLeft.setText("A-B: Not set", juce::dontSendNotification);
+    abMarkersLabelLeft.setColour(juce::Label::textColourId, juce::Colours::white);
+    abMarkersLabelLeft.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(abMarkersLabelLeft);
 
-    setMarkerButton.setEnabled(true);
-    setMarkerButton.setVisible(true);
-    addAndMakeVisible(&setMarkerButton);
-    addAndMakeVisible(markersListBox);
+    setMarkerButtonLeft.setEnabled(true);
+    setMarkerButtonLeft.setVisible(true);
+    addAndMakeVisible(&setMarkerButtonLeft);
+
+    volumeSliderRight.setRange(0.0, 1.0, 0.01);
+    volumeSliderRight.setValue(1.0);
+    volumeSliderRight.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    volumeSliderRight.addListener(this);
+    addAndMakeVisible(volumeSliderRight);
+
+    positionSliderRight.setRange(0.0, 1.0, 0.0001);
+    positionSliderRight.setValue(0.0);
+    positionSliderRight.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    positionSliderRight.addListener(this);
+    addAndMakeVisible(positionSliderRight);
+
+    addAndMakeVisible(progressBarRight);
+    progressBarRight.setPercentageDisplay(true);
+
+    speedSliderRight.setRange(0.5, 2.0, 0.01);
+    speedSliderRight.setValue(1.0);
+    speedSliderRight.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    speedSliderRight.addListener(this);
+    addAndMakeVisible(speedSliderRight);
+    
+    speedLabelRight.setText("1.00x", juce::dontSendNotification);
+    speedLabelRight.setColour(juce::Label::textColourId, juce::Colours::white);
+    speedLabelRight.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(speedLabelRight);
+
+    timeLabelRight.setText("00:00:00 / 00:00:00", juce::dontSendNotification);
+    addAndMakeVisible(timeLabelRight);
+
+    setMarkerAButtonRight.addListener(this);
+    setMarkerBButtonRight.addListener(this);
+    abLoopButtonRight.addListener(this);
+    clearMarkersButtonRight.addListener(this);
+    addAndMakeVisible(setMarkerAButtonRight);
+    addAndMakeVisible(setMarkerBButtonRight);
+    addAndMakeVisible(abLoopButtonRight);
+    addAndMakeVisible(clearMarkersButtonRight);
+
+    abMarkersLabelRight.setText("A-B: Not set", juce::dontSendNotification);
+    abMarkersLabelRight.setColour(juce::Label::textColourId, juce::Colours::white);
+    abMarkersLabelRight.setJustificationType(juce::Justification::centredLeft);
+    addAndMakeVisible(abMarkersLabelRight);
+
+    setMarkerButtonRight.setEnabled(true);
+    setMarkerButtonRight.setVisible(true);
+    addAndMakeVisible(&setMarkerButtonRight);
 
     startTimer(100);
-
-    addAndMakeVisible(forward10sButton);
-    addAndMakeVisible(backward10sButton);
-
-    forward10sButton.addListener(this);
-    backward10sButton.addListener(this);
 
 }
 
@@ -199,122 +300,184 @@ PlayerGui::~PlayerGui()
 
 void PlayerGui::paint(juce::Graphics& g) {
     g.fillAll(juce::Colours::darkgrey);
+    int dividerX = getWidth() / 2;
+    g.setColour(juce::Colours::grey);
+    g.drawLine((float)dividerX, 0.0f, (float)dividerX, (float)getHeight(), 2.0f);
 }
 
 void PlayerGui::resized()
 {
-    const int buttonSize = 32;
-    const int muteButtonSize = 28;
-    const int margin = 20;
+    const int buttonSize = 24;
+    const int muteButtonSize = 20;
+    const int margin = 15;
+    const int playerWidth = (getWidth() - 3 * margin) / 2;
+    const int divider = margin + playerWidth;
     
-    progressBar.setBounds(margin, 10, getWidth() - 2 * margin, 20);
+    int leftStartX = margin;
+    int rightStartX = divider + margin;
     
-    int buttonAreaStart = (int)(getWidth() * 0.15f);
-    int buttonAreaWidth = (int)(getWidth() * 0.70f);
-    int buttonY = 60;
+    progressBarLeft.setBounds(leftStartX, 10, playerWidth - margin, 18);
+    progressBarRight.setBounds(rightStartX, 10, playerWidth - margin, 18);
+    
+    int buttonAreaStart = (int)(playerWidth * 0.1f) + 20;
+    int buttonAreaWidth = (int)(playerWidth * 0.8f) - 40;
+    int buttonY = 50;
     
     int availableWidth = buttonAreaWidth - (9 * buttonSize);
-    int spacing = availableWidth / 8;
+    int spacing = availableWidth / 10;
     
-    int currentX = buttonAreaStart;
+    int currentXLeft = leftStartX + buttonAreaStart;
+    int currentXRight = rightStartX + buttonAreaStart;
     
-    stopButton.setBounds(currentX, buttonY, buttonSize, buttonSize);
-    currentX += buttonSize + spacing;
+    stopButtonLeft.setBounds(currentXLeft, buttonY, buttonSize, buttonSize);
+    currentXLeft += buttonSize + spacing;
+    stopButtonRight.setBounds(currentXRight, buttonY, buttonSize, buttonSize);
+    currentXRight += buttonSize + spacing;
     
-    restartButton.setBounds(currentX, buttonY, buttonSize, buttonSize);
-    currentX += buttonSize + spacing;
+    restartButtonLeft.setBounds(currentXLeft, buttonY, buttonSize, buttonSize);
+    currentXLeft += buttonSize + spacing;
+    restartButtonRight.setBounds(currentXRight, buttonY, buttonSize, buttonSize);
+    currentXRight += buttonSize + spacing;
     
-    goToStartButton.setBounds(currentX, buttonY, buttonSize, buttonSize);
-    currentX += buttonSize + spacing;
+    goToStartButtonLeft.setBounds(currentXLeft, buttonY, buttonSize, buttonSize);
+    currentXLeft += buttonSize + spacing;
+    goToStartButtonRight.setBounds(currentXRight, buttonY, buttonSize, buttonSize);
+    currentXRight += buttonSize + spacing;
     
-    backward10sButton.setBounds(currentX, buttonY, buttonSize, buttonSize);
-    currentX += buttonSize + spacing;
+    backward10sButtonLeft.setBounds(currentXLeft, buttonY, buttonSize, buttonSize);
+    currentXLeft += buttonSize + spacing;
+    backward10sButtonRight.setBounds(currentXRight, buttonY, buttonSize, buttonSize);
+    currentXRight += buttonSize + spacing;
     
-    playButton.setBounds(currentX, buttonY, buttonSize, buttonSize);
-    pauseButton.setBounds(currentX, buttonY, buttonSize, buttonSize);
-    currentX += buttonSize + spacing;
+    playButtonLeft.setBounds(currentXLeft, buttonY, buttonSize, buttonSize);
+    pauseButtonLeft.setBounds(currentXLeft, buttonY, buttonSize, buttonSize);
+    currentXLeft += buttonSize + spacing;
+    playButtonRight.setBounds(currentXRight, buttonY, buttonSize, buttonSize);
+    pauseButtonRight.setBounds(currentXRight, buttonY, buttonSize, buttonSize);
+    currentXRight += buttonSize + spacing;
     
-    forward10sButton.setBounds(currentX, buttonY, buttonSize, buttonSize);
-    currentX += buttonSize + spacing;
+    forward10sButtonLeft.setBounds(currentXLeft, buttonY, buttonSize, buttonSize);
+    currentXLeft += buttonSize + spacing;
+    forward10sButtonRight.setBounds(currentXRight, buttonY, buttonSize, buttonSize);
+    currentXRight += buttonSize + spacing;
     
-    goToEndButton.setBounds(currentX, buttonY, buttonSize, buttonSize);
-    currentX += buttonSize + spacing;
+    goToEndButtonLeft.setBounds(currentXLeft, buttonY, buttonSize, buttonSize);
+    currentXLeft += buttonSize + spacing;
+    goToEndButtonRight.setBounds(currentXRight, buttonY, buttonSize, buttonSize);
+    currentXRight += buttonSize + spacing;
     
-    loopButton.setBounds(currentX, buttonY, buttonSize, buttonSize);
+    loopButtonLeft.setBounds(currentXLeft, buttonY, buttonSize, buttonSize);
+    loopButtonRight.setBounds(currentXRight, buttonY, buttonSize, buttonSize);
     
-    int sliderY = buttonY + buttonSize + 25;
-    positionSlider.setBounds(margin, sliderY, getWidth() - 2 * margin, 30);
+    int sliderY = buttonY + buttonSize + 20;
+    positionSliderLeft.setBounds(leftStartX, sliderY, playerWidth - margin, 25);
+    positionSliderRight.setBounds(rightStartX, sliderY, playerWidth - margin, 25);
     
-    int controlRowY = sliderY + 40;
-    int rowHeight = 25;
-    int controlSpacing = 10;
-    
-    int leftX = margin;
-    setMarkerAButton.setBounds(leftX, controlRowY, 60, rowHeight);
-    leftX += 65;
-    setMarkerBButton.setBounds(leftX, controlRowY, 60, rowHeight);
-    leftX += 65;
-    abLoopButton.setBounds(leftX, controlRowY, 80, rowHeight);
-    leftX += 85;
-    clearMarkersButton.setBounds(leftX, controlRowY, 80, rowHeight);
-    leftX += 85;
-    abMarkersLabel.setBounds(leftX, controlRowY, 200, rowHeight);
+    int controlRowY = sliderY + 35;
+    int rowHeight = 22;
+    int controlSpacing = 8;
+    int buttonHeight = 18;
     
     int timeLabelWidth = 150;
-    int timeLabelX = (getWidth() - timeLabelWidth) / 2 + 20;
-    timeLabel.setBounds(timeLabelX, controlRowY, timeLabelWidth, rowHeight);
+    int abLabelWidth = 150;
+    int timeLabelXLeft = leftStartX + (playerWidth - margin - timeLabelWidth) / 2;
+    timeLabelLeft.setBounds(timeLabelXLeft, controlRowY, timeLabelWidth, rowHeight);
     
-    int rightX = getWidth() - margin;
-    int speedSliderWidth = 200;
-    int speedSliderHeight = 20;
-    int speedLabelWidth = 60;
-    int volumeSliderWidth = 200;
-    int volumeSliderHeight = 20;
+    int rightXLeft = leftStartX + playerWidth - margin;
+    int abButtonsY = controlRowY;
+    setMarkerAButtonLeft.setBounds(rightXLeft - 50, abButtonsY, 50, buttonHeight);
+    abButtonsY += buttonHeight + 2;
+    setMarkerBButtonLeft.setBounds(rightXLeft - 50, abButtonsY, 50, buttonHeight);
     
+    rightXLeft -= 75;
+    abButtonsY = controlRowY;
+    clearMarkersButtonLeft.setBounds(rightXLeft - 70, abButtonsY, 70, buttonHeight);
+    abButtonsY += buttonHeight + 2;
+    abLoopButtonLeft.setBounds(rightXLeft - 70, abButtonsY, 70, buttonHeight);
+    
+    rightXLeft -= 80;
+    abMarkersLabelLeft.setBounds(rightXLeft - abLabelWidth, controlRowY, abLabelWidth, rowHeight);
+    
+    int speedSliderWidth = 150;
+    int speedSliderHeight = 18;
+    int speedLabelWidth = 50;
+    int volumeSliderWidth = 150;
+    int volumeSliderHeight = 18;
+    
+    int leftXSliders = leftStartX;
+    muteButtonLeft.setBounds(leftXSliders, controlRowY + (rowHeight - muteButtonSize) / 2, muteButtonSize, muteButtonSize);
+    leftXSliders += muteButtonSize + controlSpacing;
+    volumeSliderLeft.setBounds(leftXSliders, controlRowY + 2, volumeSliderWidth, volumeSliderHeight);
+    
+    int volumeSpeedY = controlRowY + volumeSliderHeight + 4;
+    leftXSliders = leftStartX;
+    speedLabelLeft.setBounds(leftXSliders, volumeSpeedY, speedLabelWidth, rowHeight);
+    leftXSliders += speedLabelWidth + 5;
+    speedSliderLeft.setBounds(leftXSliders, volumeSpeedY + 2, speedSliderWidth, speedSliderHeight);
+    
+    int leftX = rightStartX;
+    abButtonsY = controlRowY;
+    setMarkerAButtonRight.setBounds(leftX, abButtonsY, 50, buttonHeight);
+    leftX += 55;
+    clearMarkersButtonRight.setBounds(leftX, abButtonsY, 70, buttonHeight);
+    leftX = rightStartX;
+    abButtonsY += buttonHeight + 2;
+    setMarkerBButtonRight.setBounds(leftX, abButtonsY, 50, buttonHeight);
+    leftX += 55;
+    abLoopButtonRight.setBounds(leftX, abButtonsY, 70, buttonHeight);
+    leftX += 75;
+    abMarkersLabelRight.setBounds(leftX, controlRowY, 150, rowHeight);
+    
+    int timeLabelXRight = rightStartX + (playerWidth - margin - timeLabelWidth) / 2;
+    timeLabelRight.setBounds(timeLabelXRight, controlRowY, timeLabelWidth, rowHeight);
+    
+    int rightX = rightStartX + playerWidth - margin;
     rightX -= muteButtonSize;
-    muteButton.setBounds(rightX, controlRowY + (rowHeight - muteButtonSize) / 2, muteButtonSize, muteButtonSize);
+    muteButtonRight.setBounds(rightX, controlRowY + (rowHeight - muteButtonSize) / 2, muteButtonSize, muteButtonSize);
     rightX -= controlSpacing;
-    
     rightX -= volumeSliderWidth;
-    volumeSlider.setBounds(rightX, controlRowY + 2, volumeSliderWidth, volumeSliderHeight);
+    volumeSliderRight.setBounds(rightX, controlRowY + 2, volumeSliderWidth, volumeSliderHeight);
+    
+    volumeSpeedY = controlRowY + volumeSliderHeight + 4;
+    rightX = rightStartX + playerWidth - margin;
+    rightX -= muteButtonSize;
     rightX -= controlSpacing;
-    
-    rightX -= speedLabelWidth;
-    speedLabel.setBounds(rightX, controlRowY, speedLabelWidth, rowHeight);
-    rightX -= 5;
-    
     rightX -= speedSliderWidth;
-    speedSlider.setBounds(rightX, controlRowY + 2, speedSliderWidth, speedSliderHeight);
+    speedSliderRight.setBounds(rightX, volumeSpeedY + 2, speedSliderWidth, speedSliderHeight);
+    rightX += speedSliderWidth + 5;
+    speedLabelRight.setBounds(rightX, volumeSpeedY, speedLabelWidth, rowHeight);
     
-    int listBottomMargin = 20;
-    int listHeight = 300;
+    int listBottomMargin = 15;
+    int listHeight = 280;
     int listY = getHeight() - listHeight - listBottomMargin;
     
-    int buttonsY = listY - buttonSize - 15;
-    loadFilesButton.setBounds(margin, buttonsY, buttonSize, buttonSize);
-    setMarkerButton.setBounds(getWidth() - margin - buttonSize, buttonsY, buttonSize, buttonSize);
+    int buttonsY = listY - buttonSize - 12;
+    loadFilesButton.setBounds((getWidth() - buttonSize) / 2, buttonsY, buttonSize, buttonSize);
+    setMarkerButtonLeft.setBounds(leftStartX, buttonsY, buttonSize, buttonSize);
+    setMarkerButtonRight.setBounds(rightStartX + playerWidth - margin - buttonSize, buttonsY, buttonSize, buttonSize);
     
     loadFilesButton.toFront(false);
-    setMarkerButton.toFront(false);
+    setMarkerButtonLeft.toFront(false);
+    setMarkerButtonRight.toFront(false);
     
-    int metadataSpacing = 20;
-    int metadataHeight = 100;
-    int metadataY = buttonsY - metadataSpacing - metadataHeight + 50;
-    fileInfoLabel.setBounds(margin, metadataY, getWidth() - 2 * margin, metadataHeight);
+    int metadataSpacing = 15;
+    int metadataHeight = 95;
+    int metadataY = buttonsY - metadataSpacing - metadataHeight + 40;
+    fileInfoLabelLeft.setBounds(leftStartX, metadataY, playerWidth - margin + 10, metadataHeight);
+    fileInfoLabelRight.setBounds(rightStartX, metadataY, playerWidth - margin + 10, metadataHeight);
+    
     int totalListWidth = getWidth() - 2 * margin;
-    int playlistWidth = (int)(totalListWidth * 0.75f);
-    int markersWidth = totalListWidth - playlistWidth;
+    int markersWidth = (int)(totalListWidth * 0.25f);
+    int playlistWidth = totalListWidth - 2 * markersWidth;
     
-    PlaylistBox.setBounds(margin, listY, playlistWidth, listHeight);
-    markersListBox.setBounds(margin + playlistWidth, listY, markersWidth, listHeight);
+    markersListBoxLeft.setBounds(margin, listY, markersWidth, listHeight);
+    PlaylistBox.setBounds(margin + markersWidth, listY, playlistWidth, listHeight);
+    markersListBoxRight.setBounds(margin + markersWidth + playlistWidth, listY, markersWidth, listHeight);
 }
 
 void PlayerGui::buttonClicked(juce::Button* button)
 {
-    if (playerAudio == NULL)
-        return;
-
-    if (button == &loadButton) {
+    if (button == &loadButtonLeft) {
         fileChooser = std::make_unique<juce::FileChooser>(
             "Select an audio file...",
             juce::File{},
@@ -325,51 +488,108 @@ void PlayerGui::buttonClicked(juce::Button* button)
             [this](const juce::FileChooser& fc)
             {
                 auto file = fc.getResult();
-                if (file.existsAsFile()) {
-                    playerAudio->loadFile(file);
-                    updateMetadata();
+                if (file.existsAsFile() && playerAudioLeft != nullptr) {
+                    playerAudioLeft->loadFile(file);
+                    updateMetadataLeft();
                 }
             });
     }
-    else if (button == &restartButton) {
-        playerAudio->restart();
+    else if (button == &loadButtonRight) {
+        fileChooser = std::make_unique<juce::FileChooser>(
+            "Select an audio file...",
+            juce::File{},
+            "*.wav;*.mp3");
+
+        fileChooser->launchAsync(
+            juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
+            [this](const juce::FileChooser& fc)
+            {
+                auto file = fc.getResult();
+                if (file.existsAsFile() && playerAudioRight != nullptr) {
+                    playerAudioRight->loadFile(file);
+                    updateMetadataRight();
+                }
+            });
     }
-    else if (button == &stopButton) {
-        playerAudio->stop();
+    else if (button == &restartButtonLeft && playerAudioLeft != nullptr) {
+        playerAudioLeft->restart();
     }
-    else if (button == &pauseButton) {
-        playerAudio->pause();
+    else if (button == &restartButtonRight && playerAudioRight != nullptr) {
+        playerAudioRight->restart();
     }
-    else if (button == &playButton) {
-        playerAudio->play();
+    else if (button == &stopButtonLeft && playerAudioLeft != nullptr) {
+        playerAudioLeft->stop();
     }
-    else if (button == &goToEndButton) {
-        playerAudio->goToEnd();
+    else if (button == &stopButtonRight && playerAudioRight != nullptr) {
+        playerAudioRight->stop();
     }
-    else if (button == &goToStartButton) {
-        playerAudio->goToStart();
+    else if (button == &pauseButtonLeft && playerAudioLeft != nullptr) {
+        playerAudioLeft->pause();
     }
-    else if (button == &loopButton) {
-        playerAudio->loop();
+    else if (button == &pauseButtonRight && playerAudioRight != nullptr) {
+        playerAudioRight->pause();
     }
-    else if (button == &muteButton) {
-        playerAudio->setGain(0.0f, true);
+    else if (button == &playButtonLeft && playerAudioLeft != nullptr) {
+        playerAudioLeft->play();
     }
-    else if (button == &setMarkerAButton) {
-        playerAudio->setMarkerA();
+    else if (button == &playButtonRight && playerAudioRight != nullptr) {
+        playerAudioRight->play();
     }
-    else if (button == &setMarkerBButton) {
-        playerAudio->setMarkerB();
+    else if (button == &goToEndButtonLeft && playerAudioLeft != nullptr) {
+        playerAudioLeft->goToEnd();
     }
-    else if (button == &abLoopButton) {
-        playerAudio->toggleABLoop();
+    else if (button == &goToEndButtonRight && playerAudioRight != nullptr) {
+        playerAudioRight->goToEnd();
     }
-    else if (button == &clearMarkersButton) {
-        playerAudio->clearMarkers();
+    else if (button == &goToStartButtonLeft && playerAudioLeft != nullptr) {
+        playerAudioLeft->goToStart();
     }
-    else if (button == &setMarkerButton) {
-        playerAudio->addTrackMarker();
-        updateMarkersList();
+    else if (button == &goToStartButtonRight && playerAudioRight != nullptr) {
+        playerAudioRight->goToStart();
+    }
+    else if (button == &loopButtonLeft && playerAudioLeft != nullptr) {
+        playerAudioLeft->loop();
+    }
+    else if (button == &loopButtonRight && playerAudioRight != nullptr) {
+        playerAudioRight->loop();
+    }
+    else if (button == &muteButtonLeft && playerAudioLeft != nullptr) {
+        playerAudioLeft->setGain(0.0f, true);
+    }
+    else if (button == &muteButtonRight && playerAudioRight != nullptr) {
+        playerAudioRight->setGain(0.0f, true);
+    }
+    else if (button == &setMarkerAButtonLeft && playerAudioLeft != nullptr) {
+        playerAudioLeft->setMarkerA();
+    }
+    else if (button == &setMarkerAButtonRight && playerAudioRight != nullptr) {
+        playerAudioRight->setMarkerA();
+    }
+    else if (button == &setMarkerBButtonLeft && playerAudioLeft != nullptr) {
+        playerAudioLeft->setMarkerB();
+    }
+    else if (button == &setMarkerBButtonRight && playerAudioRight != nullptr) {
+        playerAudioRight->setMarkerB();
+    }
+    else if (button == &abLoopButtonLeft && playerAudioLeft != nullptr) {
+        playerAudioLeft->toggleABLoop();
+    }
+    else if (button == &abLoopButtonRight && playerAudioRight != nullptr) {
+        playerAudioRight->toggleABLoop();
+    }
+    else if (button == &clearMarkersButtonLeft && playerAudioLeft != nullptr) {
+        playerAudioLeft->clearMarkers();
+    }
+    else if (button == &clearMarkersButtonRight && playerAudioRight != nullptr) {
+        playerAudioRight->clearMarkers();
+    }
+    else if (button == &setMarkerButtonLeft && playerAudioLeft != nullptr) {
+        playerAudioLeft->addTrackMarker();
+        updateMarkersListLeft();
+    }
+    else if (button == &setMarkerButtonRight && playerAudioRight != nullptr) {
+        playerAudioRight->addTrackMarker();
+        updateMarkersListRight();
     }
     else if (button == &loadFilesButton) {
         fileChooser = std::make_unique<juce::FileChooser>(
@@ -382,58 +602,80 @@ void PlayerGui::buttonClicked(juce::Button* button)
             [this](const juce::FileChooser& fc)
             {
                 auto files = fc.getResults();
-                playerAudio->addtoPlaylist(files);
-                updatePlaylist();
+                if (playerAudioLeft != nullptr) {
+                    playerAudioLeft->addtoPlaylist(files);
+                    updatePlaylist();
+                }
             });
     }
-
-    else if (button == &forward10sButton) {
-        playerAudio->tenSec(true);
+    else if (button == &forward10sButtonLeft && playerAudioLeft != nullptr) {
+        playerAudioLeft->tenSec(true);
     }
-    else if (button == &backward10sButton) {
-        playerAudio->tenSec(false);
+    else if (button == &forward10sButtonRight && playerAudioRight != nullptr) {
+        playerAudioRight->tenSec(true);
+    }
+    else if (button == &backward10sButtonLeft && playerAudioLeft != nullptr) {
+        playerAudioLeft->tenSec(false);
+    }
+    else if (button == &backward10sButtonRight && playerAudioRight != nullptr) {
+        playerAudioRight->tenSec(false);
     }
 
 }
 
 void PlayerGui::sliderValueChanged(juce::Slider* slider) {
-    if (slider == &volumeSlider && playerAudio != NULL) {
-        playerAudio->setGain((float)volumeSlider.getValue());
+    if (slider == &volumeSliderLeft && playerAudioLeft != nullptr) {
+        playerAudioLeft->setGain((float)volumeSliderLeft.getValue());
     }
-    else if (slider == &positionSlider && playerAudio != NULL) {
-        if (isDraggingSlider)
-            playerAudio->setPositionNormalized(positionSlider.getValue());
+    else if (slider == &volumeSliderRight && playerAudioRight != nullptr) {
+        playerAudioRight->setGain((float)volumeSliderRight.getValue());
     }
-    else if (slider == &speedSlider && playerAudio != NULL) {
-        playerAudio->setSpeed(speedSlider.getValue());
-        markersListBox.repaint();
+    else if (slider == &positionSliderLeft && playerAudioLeft != nullptr) {
+        if (isDraggingSliderLeft)
+            playerAudioLeft->setPositionNormalized(positionSliderLeft.getValue());
+    }
+    else if (slider == &positionSliderRight && playerAudioRight != nullptr) {
+        if (isDraggingSliderRight)
+            playerAudioRight->setPositionNormalized(positionSliderRight.getValue());
+    }
+    else if (slider == &speedSliderLeft && playerAudioLeft != nullptr) {
+        playerAudioLeft->setSpeed(speedSliderLeft.getValue());
+        markersListBoxLeft.repaint();
+    }
+    else if (slider == &speedSliderRight && playerAudioRight != nullptr) {
+        playerAudioRight->setSpeed(speedSliderRight.getValue());
+        markersListBoxRight.repaint();
     }
 }
 
 void PlayerGui::sliderDragStarted(juce::Slider* slider) {
-    if (slider == &positionSlider)
-        isDraggingSlider = true;
+    if (slider == &positionSliderLeft)
+        isDraggingSliderLeft = true;
+    else if (slider == &positionSliderRight)
+        isDraggingSliderRight = true;
 }
 
 void PlayerGui::sliderDragEnded(juce::Slider* slider) {
-    if (slider == &positionSlider)
-        isDraggingSlider = false;
+    if (slider == &positionSliderLeft)
+        isDraggingSliderLeft = false;
+    else if (slider == &positionSliderRight)
+        isDraggingSliderRight = false;
 }
 
 void PlayerGui::timerCallback() {
-    if (playerAudio != NULL && !isDraggingSlider) {
-        positionSlider.setValue(playerAudio->getPositionNormalized());
-        progressValue = playerAudio->getPositionNormalized();
+    if (playerAudioLeft != nullptr && !isDraggingSliderLeft) {
+        positionSliderLeft.setValue(playerAudioLeft->getPositionNormalized());
+        progressValueLeft = playerAudioLeft->getPositionNormalized();
 
-        double currentTime = playerAudio->getPosition();
-        double totalTime = playerAudio->getLength();
+        double currentTime = playerAudioLeft->getPosition();
+        double totalTime = playerAudioLeft->getLength();
 
         juce::String timeText = formatTime(currentTime) + " / " + formatTime(totalTime);
-        timeLabel.setText(timeText, juce::dontSendNotification);
+        timeLabelLeft.setText(timeText, juce::dontSendNotification);
 
-        double a = playerAudio->getMarkerATime();
-        double b = playerAudio->getMarkerBTime();
-        bool active = playerAudio->isABLoopActive();
+        double a = playerAudioLeft->getMarkerATime();
+        double b = playerAudioLeft->getMarkerBTime();
+        bool active = playerAudioLeft->isABLoopActive();
         juce::String abText = "A-B: ";
         if (a >= 0 && b >= 0 && b > a) {
             abText += "A=" + formatTime(a) + "  B=" + formatTime(b);
@@ -442,25 +684,59 @@ void PlayerGui::timerCallback() {
         else {
             abText += "Not set";
         }
-        abMarkersLabel.setText(abText, juce::dontSendNotification);
+        abMarkersLabelLeft.setText(abText, juce::dontSendNotification);
 
-        double speed = speedSlider.getValue();
-        speedLabel.setText(juce::String::formatted("%.2fx", speed), juce::dontSendNotification);
+        double speed = speedSliderLeft.getValue();
+        speedLabelLeft.setText(juce::String::formatted("%.2fx", speed), juce::dontSendNotification);
 
         updateMuteButtonIcon();
 
-        bool isPlaying = playerAudio->isPlaying();
-        playButton.setVisible(!isPlaying);
-        pauseButton.setVisible(isPlaying);
+        bool isPlaying = playerAudioLeft->isPlaying();
+        playButtonLeft.setVisible(!isPlaying);
+        pauseButtonLeft.setVisible(isPlaying);
 
-        markersListBox.repaint();
+        markersListBoxLeft.repaint();
+    }
+
+    if (playerAudioRight != nullptr && !isDraggingSliderRight) {
+        positionSliderRight.setValue(playerAudioRight->getPositionNormalized());
+        progressValueRight = playerAudioRight->getPositionNormalized();
+
+        double currentTime = playerAudioRight->getPosition();
+        double totalTime = playerAudioRight->getLength();
+
+        juce::String timeText = formatTime(currentTime) + " / " + formatTime(totalTime);
+        timeLabelRight.setText(timeText, juce::dontSendNotification);
+
+        double a = playerAudioRight->getMarkerATime();
+        double b = playerAudioRight->getMarkerBTime();
+        bool active = playerAudioRight->isABLoopActive();
+        juce::String abText = "A-B: ";
+        if (a >= 0 && b >= 0 && b > a) {
+            abText += "A=" + formatTime(a) + "  B=" + formatTime(b);
+            abText += active ? "  LOOPING" : "  OFF";
+        }
+        else {
+            abText += "Not set";
+        }
+        abMarkersLabelRight.setText(abText, juce::dontSendNotification);
+
+        double speed = speedSliderRight.getValue();
+        speedLabelRight.setText(juce::String::formatted("%.2fx", speed), juce::dontSendNotification);
+
+        bool isPlaying = playerAudioRight->isPlaying();
+        playButtonRight.setVisible(!isPlaying);
+        pauseButtonRight.setVisible(isPlaying);
+
+        markersListBoxRight.repaint();
     }
 }
 
 juce::String PlayerGui::formatTime(double seconds) {
-    int minutes = (int)(seconds / 60);
+    int hours = (int)(seconds / 3600);
+    int minutes = (int)((seconds - hours * 3600) / 60);
     int secs = (int)(seconds) % 60;
-    return juce::String::formatted("%02d:%02d", minutes, secs);
+    return juce::String::formatted("%02d:%02d:%02d", hours, minutes, secs);
 }
 
 juce::Image PlayerGui::loadIconFromBinary(const void* data, size_t dataSize) {
@@ -480,16 +756,24 @@ void PlayerGui::setupIconButton(juce::ImageButton* button, const juce::Image& ic
 }
 
 void PlayerGui::updateMuteButtonIcon() {
-    bool muted = playerAudio->getIsMuted();
-    juce::Image icon = muted ? loadIconFromBinary(BinaryData::muted_png, BinaryData::muted_pngSize) 
-                             : loadIconFromBinary(BinaryData::unmuted_png, BinaryData::unmuted_pngSize);
-    if (icon.isValid())
-        setupIconButton(&muteButton, icon);
+    if (playerAudioLeft != nullptr) {
+        bool muted = playerAudioLeft->getIsMuted();
+        juce::Image icon = muted ? loadIconFromBinary(BinaryData::muted_png, BinaryData::muted_pngSize) 
+                                 : loadIconFromBinary(BinaryData::unmuted_png, BinaryData::unmuted_pngSize);
+        if (icon.isValid())
+            setupIconButton(&muteButtonLeft, icon);
+    }
+    if (playerAudioRight != nullptr) {
+        bool muted = playerAudioRight->getIsMuted();
+        juce::Image icon = muted ? loadIconFromBinary(BinaryData::muted_png, BinaryData::muted_pngSize) 
+                                 : loadIconFromBinary(BinaryData::unmuted_png, BinaryData::unmuted_pngSize);
+        if (icon.isValid())
+            setupIconButton(&muteButtonRight, icon);
+    }
 }
 
 void PlayerGui::loadSessionState(const juce::String& filePath, float volume)
 {
     (void)filePath;
-    volumeSlider.setValue(volume, juce::dontSendNotification);
-    updateMetadata();
+    (void)volume;
 }

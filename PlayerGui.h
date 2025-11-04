@@ -7,7 +7,9 @@ class PlayerGui;
 
 enum class ListMode {
     Playlist,
-    Markers
+    Markers,
+    PlaylistLeft,
+    PlaylistRight
 };
 
 class BigButtonLookAndFeel : public juce::LookAndFeel_V4 {
@@ -21,21 +23,44 @@ class ListRowComponent : public juce::Component, public juce::Button::Listener {
 private:
     BigButtonLookAndFeel bigButtonLookAndFeel;
 public:
-    ListRowComponent(PlayerAudio* audio, PlayerGui* gui, int rowIndex, ListMode mode, std::function<void()> onUpdate)
-        : playerAudio(audio), playerGui(gui), index(rowIndex), rowMode(mode), updateCallback(onUpdate)
+    ListRowComponent(PlayerAudio* audio, PlayerAudio* audioRight, PlayerGui* gui, int rowIndex, ListMode mode, std::function<void()> onUpdate)
+        : playerAudio(audio), playerAudioRight(audioRight), playerGui(gui), index(rowIndex), rowMode(mode), updateCallback(onUpdate)
     {
         setVisible(true);
         setEnabled(true);
-        actionButton.setButtonText(mode == ListMode::Playlist ? "Play" : "Load");
+        if (mode == ListMode::Playlist || mode == ListMode::PlaylistLeft || mode == ListMode::PlaylistRight) {
+            actionButton.setVisible(false);
+            actionButton.setEnabled(false);
+            playLeftButton.setButtonText("Play L");
+            playRightButton.setButtonText("Play R");
+            playLeftButton.setLookAndFeel(&bigButtonLookAndFeel);
+            playRightButton.setLookAndFeel(&bigButtonLookAndFeel);
+            playLeftButton.addListener(this);
+            playRightButton.addListener(this);
+            playLeftButton.setVisible(true);
+            playLeftButton.setEnabled(true);
+            playRightButton.setVisible(true);
+            playRightButton.setEnabled(true);
+            addAndMakeVisible(&playLeftButton);
+            addAndMakeVisible(&playRightButton);
+        }
+        else {
+            actionButton.setButtonText("Load");
+            actionButton.setVisible(true);
+            actionButton.setEnabled(true);
+        }
         removeButton.setButtonText("X");
         actionButton.setLookAndFeel(&bigButtonLookAndFeel);
         removeButton.setLookAndFeel(&bigButtonLookAndFeel);
         actionButton.addListener(this);
         removeButton.addListener(this);
-        for (auto* btn : { &actionButton, &removeButton }) {
+        if (mode != ListMode::Playlist && mode != ListMode::PlaylistLeft && mode != ListMode::PlaylistRight) {
+            addAndMakeVisible(&actionButton);
+        }
+        addAndMakeVisible(&removeButton);
+        for (auto* btn : { &removeButton }) {
             btn->setVisible(true);
             btn->setEnabled(true);
-            addAndMakeVisible(btn);
         }
     }
     
@@ -45,11 +70,22 @@ public:
     }
 
     void resized() override {
-        int buttonWidth = 100;
-        int removeWidth = 60;
-        int buttonArea = buttonWidth + removeWidth + 4;
-        removeButton.setBounds(getWidth() - removeWidth, 2, removeWidth - 2, getHeight() - 4);
-        actionButton.setBounds(getWidth() - removeWidth - buttonWidth - 2, 2, buttonWidth, getHeight() - 4);
+        int buttonWidth = 60;
+        int removeWidth = getHeight() - 4;
+        int playButtonWidth = 70;
+        int playButtonHeight = getHeight() - 4;
+        int buttonArea;
+        if (rowMode == ListMode::Playlist || rowMode == ListMode::PlaylistLeft || rowMode == ListMode::PlaylistRight) {
+            buttonArea = playButtonWidth + playButtonWidth + removeWidth + 6;
+            removeButton.setBounds(getWidth() - removeWidth, 2, removeWidth, removeWidth);
+            playRightButton.setBounds(getWidth() - removeWidth - playButtonWidth - 2, 2, playButtonWidth, playButtonHeight);
+            playLeftButton.setBounds(getWidth() - removeWidth - playButtonWidth - playButtonWidth - 4, 2, playButtonWidth, playButtonHeight);
+        }
+        else {
+            buttonArea = buttonWidth + removeWidth + 4;
+            removeButton.setBounds(getWidth() - removeWidth, 2, removeWidth, removeWidth);
+            actionButton.setBounds(getWidth() - removeWidth - buttonWidth - 2, 2, buttonWidth, getHeight() - 4);
+        }
         textAreaWidth = getWidth() - buttonArea;
     }
 
@@ -66,12 +102,13 @@ public:
             double markerTime = playerAudio->getMarkerTime(index);
             if (markerTime < 0)
                 return;
-            int minutes = (int)(markerTime / 60);
+            int hours = (int)(markerTime / 3600);
+            int minutes = (int)((markerTime - hours * 3600) / 60);
             int secs = (int)(markerTime) % 60;
             juce::String markerText = juce::String::formatted("Marker %d", index + 1);
-            juce::String timeText = juce::String::formatted("%02d:%02d", minutes, secs);
+            juce::String timeText = juce::String::formatted("%02d:%02d:%02d", hours, minutes, secs);
             
-            int buttonArea = 170;
+            int buttonArea = 110;
             int timeColWidth = 80;
             int markerColWidth = getWidth() - buttonArea - timeColWidth - 8;
             
@@ -79,19 +116,23 @@ public:
             g.drawText(timeText, markerColWidth + 12, 0, timeColWidth, getHeight(), juce::Justification::centredLeft);
         }
         else {
-            if (index >= playerAudio->playlist.size())
+            PlayerAudio* targetAudio = playerAudio;
+            if (rowMode == ListMode::PlaylistRight && playerAudioRight != nullptr)
+                targetAudio = playerAudioRight;
+            if (index >= targetAudio->playlist.size())
                 return;
-            juce::File file = playerAudio->playlist[index];
+            juce::File file = targetAudio->playlist[index];
             juce::String fileName = file.getFileName();
             
             juce::String durationText = "--:--";
-            juce::String currentPath = playerAudio->getCurrentSongPath();
+            juce::String currentPath = targetAudio->getCurrentSongPath();
             if (currentPath.isNotEmpty() && file.getFullPathName() == currentPath) {
-                double duration = playerAudio->getLength();
+                double duration = targetAudio->getLength();
                 if (duration > 0) {
-                    int minutes = (int)(duration / 60);
+                    int hours = (int)(duration / 3600);
+                    int minutes = (int)((duration - hours * 3600) / 60);
                     int secs = (int)(duration) % 60;
-                    durationText = juce::String::formatted("%02d:%02d", minutes, secs);
+                    durationText = juce::String::formatted("%02d:%02d:%02d", hours, minutes, secs);
                 }
             }
             else {
@@ -101,9 +142,10 @@ public:
                 if (reader != nullptr) {
                     double duration = reader->lengthInSamples / reader->sampleRate;
                     if (duration > 0) {
-                        int minutes = (int)(duration / 60);
+                        int hours = (int)(duration / 3600);
+                        int minutes = (int)((duration - hours * 3600) / 60);
                         int secs = (int)(duration) % 60;
-                        durationText = juce::String::formatted("%02d:%02d", minutes, secs);
+                        durationText = juce::String::formatted("%02d:%02d:%02d", hours, minutes, secs);
                     }
                 }
             }
@@ -112,6 +154,9 @@ public:
             int durationColWidth = (int)(getWidth() * 0.25f);
             g.drawText(fileName, 4, 0, trackColWidth, getHeight(), juce::Justification::centredLeft);
             g.drawText(durationText, trackColWidth + 4, 0, durationColWidth, getHeight(), juce::Justification::centredLeft);
+            g.setColour(juce::Colours::grey);
+            g.drawLine((float)(trackColWidth + 2), 0.0f, (float)(trackColWidth + 2), (float)getHeight(), 1.0f);
+            g.drawLine((float)(trackColWidth + durationColWidth + 2), 0.0f, (float)(trackColWidth + durationColWidth + 2), (float)getHeight(), 1.0f);
         }
     }
 
@@ -130,10 +175,13 @@ public:
 
 private:
     PlayerAudio* playerAudio = nullptr;
+    PlayerAudio* playerAudioRight = nullptr;
     PlayerGui* playerGui = nullptr;
     int index;
     ListMode rowMode;
     juce::TextButton actionButton;
+    juce::TextButton playLeftButton;
+    juce::TextButton playRightButton;
     juce::TextButton removeButton;
     std::function<void()> updateCallback;
     int textAreaWidth = 0;
@@ -141,13 +189,14 @@ private:
 
 class ListModel : public juce::ListBoxModel {
 public:
-    ListModel(PlayerAudio* audio, PlayerGui* gui, ListMode mode) 
-        : playerAudio(audio), playerGui(gui), listMode(mode) {}
+    ListModel(PlayerAudio* audio, PlayerAudio* audioRight, PlayerGui* gui, ListMode mode) 
+        : playerAudio(audio), playerAudioRight(audioRight), playerGui(gui), listMode(mode) {}
     int getNumRows() override;
     void paintListBoxItem(int rowNumber, juce::Graphics& g, int width, int height, bool rowIsSelected) override;
     juce::Component* refreshComponentForRow(int rowNumber, bool isRowSelected, juce::Component* existingComponentToUpdate) override;
     void selectedRowsChanged(int lastRowSelected) override;
     PlayerAudio* playerAudio = nullptr;
+    PlayerAudio* playerAudioRight = nullptr;
     PlayerGui* playerGui = nullptr;
     ListMode listMode = ListMode::Playlist;
 };
@@ -162,20 +211,30 @@ public:
     PlayerGui();
     ~PlayerGui() override;
 
-    void setPlayerAudio(PlayerAudio* audio) {
-        playerAudio = audio;
-        playlistListModel.playerAudio = audio;
+    void setPlayerAudio(PlayerAudio* audioLeft, PlayerAudio* audioRight) {
+        playerAudioLeft = audioLeft;
+        playerAudioRight = audioRight;
+        playlistListModel.playerAudio = audioLeft;
+        playlistListModel.playerAudioRight = audioRight;
         playlistListModel.playerGui = this;
-        markersListModel.playerAudio = audio;
-        markersListModel.playerGui = this;
+        markersListModelLeft.playerAudio = audioLeft;
+        markersListModelLeft.playerGui = this;
+        markersListModelRight.playerAudio = audioRight;
+        markersListModelRight.playerGui = this;
         
         PlaylistBox.setModel(&playlistListModel);
-        markersListBox.setModel(&markersListModel);
+        markersListBoxLeft.setModel(&markersListModelLeft);
+        markersListBoxRight.setModel(&markersListModelRight);
     }
 
-    void updateMarkersList() {
-        markersListBox.updateContent();
-        markersListBox.repaint();
+    void updateMarkersListLeft() {
+        markersListBoxLeft.updateContent();
+        markersListBoxLeft.repaint();
+    }
+
+    void updateMarkersListRight() {
+        markersListBoxRight.updateContent();
+        markersListBoxRight.repaint();
     }
 
     void updatePlaylist() {
@@ -183,10 +242,17 @@ public:
         PlaylistBox.repaint();
     }
     
-    void updateMetadata() {
-        if (playerAudio != nullptr) {
-            juce::String metadata = "Currently playing:\n" + playerAudio->getMetadataInfo();
-            fileInfoLabel.setText(metadata, juce::dontSendNotification);
+    void updateMetadataLeft() {
+        if (playerAudioLeft != nullptr) {
+            juce::String metadata = "Currently playing:\n" + playerAudioLeft->getMetadataInfo();
+            fileInfoLabelLeft.setText(metadata, juce::dontSendNotification);
+        }
+    }
+
+    void updateMetadataRight() {
+        if (playerAudioRight != nullptr) {
+            juce::String metadata = "Currently playing:\n" + playerAudioRight->getMetadataInfo();
+            fileInfoLabelRight.setText(metadata, juce::dontSendNotification);
         }
     }
 
@@ -194,44 +260,74 @@ public:
     void resized() override;
     void loadSessionState(const juce::String& filePath, float volume);
 
+    PlayerAudio* playerAudioLeft = nullptr;
+    PlayerAudio* playerAudioRight = nullptr;
+
 private:
-    PlayerAudio* playerAudio = nullptr;
 
-    juce::ImageButton loadButton;
-    juce::ImageButton restartButton;
-    juce::ImageButton stopButton;
-    juce::ImageButton pauseButton;
-    juce::ImageButton playButton;
-    juce::ImageButton goToEndButton;
-    juce::ImageButton goToStartButton;
-    juce::ImageButton loopButton;
-    juce::Slider volumeSlider;
-    juce::Slider positionSlider;
-    juce::Slider speedSlider;
-    juce::Label speedLabel;
-    juce::Label timeLabel;
-    juce::ImageButton muteButton;
-    bool isDraggingSlider = false;
-    juce::Label fileInfoLabel;
+    juce::ImageButton loadButtonLeft;
+    juce::ImageButton restartButtonLeft;
+    juce::ImageButton stopButtonLeft;
+    juce::ImageButton pauseButtonLeft;
+    juce::ImageButton playButtonLeft;
+    juce::ImageButton goToEndButtonLeft;
+    juce::ImageButton goToStartButtonLeft;
+    juce::ImageButton loopButtonLeft;
+    juce::Slider volumeSliderLeft;
+    juce::Slider positionSliderLeft;
+    juce::Slider speedSliderLeft;
+    juce::Label speedLabelLeft;
+    juce::Label timeLabelLeft;
+    juce::ImageButton muteButtonLeft;
+    bool isDraggingSliderLeft = false;
+    juce::Label fileInfoLabelLeft;
+    double progressValueLeft = 0.0;
+    juce::ProgressBar progressBarLeft{ progressValueLeft };
+    juce::TextButton setMarkerAButtonLeft{ "Set A" };
+    juce::TextButton setMarkerBButtonLeft{ "Set B" };
+    juce::TextButton abLoopButtonLeft{ "A-B Loop" };
+    juce::TextButton clearMarkersButtonLeft{ "Clear A-B" };
+    juce::Label abMarkersLabelLeft;
+    juce::ImageButton setMarkerButtonLeft;
+    juce::ImageButton forward10sButtonLeft;
+    juce::ImageButton backward10sButtonLeft;
 
-    double progressValue = 0.0;
-    juce::ProgressBar progressBar{ progressValue };
+    juce::ImageButton loadButtonRight;
+    juce::ImageButton restartButtonRight;
+    juce::ImageButton stopButtonRight;
+    juce::ImageButton pauseButtonRight;
+    juce::ImageButton playButtonRight;
+    juce::ImageButton goToEndButtonRight;
+    juce::ImageButton goToStartButtonRight;
+    juce::ImageButton loopButtonRight;
+    juce::Slider volumeSliderRight;
+    juce::Slider positionSliderRight;
+    juce::Slider speedSliderRight;
+    juce::Label speedLabelRight;
+    juce::Label timeLabelRight;
+    juce::ImageButton muteButtonRight;
+    bool isDraggingSliderRight = false;
+    juce::Label fileInfoLabelRight;
+    double progressValueRight = 0.0;
+    juce::ProgressBar progressBarRight{ progressValueRight };
+    juce::TextButton setMarkerAButtonRight{ "Set A" };
+    juce::TextButton setMarkerBButtonRight{ "Set B" };
+    juce::TextButton abLoopButtonRight{ "A-B Loop" };
+    juce::TextButton clearMarkersButtonRight{ "Clear A-B" };
+    juce::Label abMarkersLabelRight;
+    juce::ImageButton setMarkerButtonRight;
+    juce::ImageButton forward10sButtonRight;
+    juce::ImageButton backward10sButtonRight;
 
-    juce::TextButton setMarkerAButton{ "Set A" };
-    juce::TextButton setMarkerBButton{ "Set B" };
-    juce::TextButton abLoopButton{ "A-B Loop" };
-    juce::TextButton clearMarkersButton{ "Clear A-B" };
-    juce::Label abMarkersLabel;
-
-    juce::ImageButton setMarkerButton;
-    juce::ListBox markersListBox;
-    ListModel markersListModel{nullptr, this, ListMode::Markers};
-    ListModel playlistListModel{nullptr, this, ListMode::Playlist};
+    juce::ImageButton loadFilesButton;
+    juce::ListBox PlaylistBox;
+    juce::ListBox markersListBoxLeft;
+    juce::ListBox markersListBoxRight;
+    ListModel markersListModelLeft{nullptr, nullptr, this, ListMode::Markers};
+    ListModel markersListModelRight{nullptr, nullptr, this, ListMode::Markers};
+    ListModel playlistListModel{nullptr, nullptr, this, ListMode::Playlist};
 
     std::unique_ptr<juce::FileChooser> fileChooser;
-
-    juce::ImageButton forward10sButton;
-    juce::ImageButton backward10sButton;
 
 
     void buttonClicked(juce::Button* button) override;
@@ -244,9 +340,6 @@ private:
     juce::Image loadIconFromBinary(const void* data, size_t dataSize);
     void setupIconButton(juce::ImageButton* button, const juce::Image& icon);
     void updateMuteButtonIcon();
-
-    juce::ListBox PlaylistBox;
-    juce::ImageButton loadFilesButton;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerGui)
 };
