@@ -10,27 +10,27 @@ void MarkerListModel::paintListBoxItem(int row, juce::Graphics& g, int width, in
     (void)row; (void)g; (void)width; (void)height; (void)rowIsSelected;
 }
 
-Component* MarkerListModel::refreshComponentForRow(int rowNumber, bool isRowSelected, Component* existingComponentToUpdate) {
+juce::Component* MarkerListModel::refreshComponentForRow(int rowNumber, bool isRowSelected, juce::Component* existingComponentToUpdate) {
     (void)isRowSelected;
-    
+
     auto createComponent = [this](int row) {
         return new MarkerRowComponent(playerAudio, row, [this]() {
             if (playerGui) playerGui->updateMarkersList();
-        });
-    };
-    
+            });
+        };
+
     if (playerAudio == nullptr || rowNumber < 0 || rowNumber >= playerAudio->getMarkerCount()) {
         if (existingComponentToUpdate != nullptr) {
             existingComponentToUpdate->setVisible(false);
         }
         return existingComponentToUpdate;
     }
-    
+
     if (auto* rowComp = dynamic_cast<MarkerRowComponent*>(existingComponentToUpdate)) {
         rowComp->updateIndex(rowNumber);
         return existingComponentToUpdate;
     }
-    
+
     if (existingComponentToUpdate != nullptr) {
         delete existingComponentToUpdate;
     }
@@ -41,7 +41,10 @@ void MarkerListModel::selectedRowsChanged(int row) {
     (void)row;
 }
 
-PlayerGui::PlayerGui() {
+
+PlayerGui::PlayerGui() : markersListModel(nullptr, this) {
+
+  
     for (auto* btn : { &loadButton, &restartButton , &stopButton, &pauseButton , &playButton, &goToEndButton, &loopButton, &muteButton, &goToStartButton })
     {
         btn->addListener(this);
@@ -68,6 +71,7 @@ PlayerGui::PlayerGui() {
     positionSlider.addListener(this);
     addAndMakeVisible(positionSlider);
 
+    // progress bar
     addAndMakeVisible(progressBar);
     progressBar.setPercentageDisplay(true);
 
@@ -81,6 +85,7 @@ PlayerGui::PlayerGui() {
     timeLabel.setText("00:00 / 00:00", juce::dontSendNotification);
     addAndMakeVisible(timeLabel);
 
+    //AB controls
     setMarkerAButton.addListener(this);
     setMarkerBButton.addListener(this);
     abLoopButton.addListener(this);
@@ -331,7 +336,7 @@ void PlayerGui::timerCallback() {
             abText += "Not set";
         }
         abMarkersLabel.setText(abText, juce::dontSendNotification);
-        
+
         markersListBox.repaint();
     }
 }
@@ -340,4 +345,16 @@ juce::String PlayerGui::formatTime(double seconds) {
     int minutes = (int)(seconds / 60);
     int secs = (int)(seconds) % 60;
     return juce::String::formatted("%02d:%02d", minutes, secs);
+}
+
+void PlayerGui::loadSessionState(const juce::String& filePath, float volume)
+{
+    
+    volumeSlider.setValue(volume, juce::dontSendNotification);
+
+    if (playerAudio != nullptr)
+    {
+        fileInfoLabel.setText(playerAudio->getMetadataInfo(), juce::dontSendNotification);
+    }
+
 }

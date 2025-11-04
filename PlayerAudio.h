@@ -7,8 +7,11 @@ private:
     std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
     juce::AudioTransportSource transportSource;
 
+   
+    juce::String currentSong;
+    double currentPosition = 0.0;
+    float currentVolume = 1.0f;
 
-    
     bool isLooping = false;
     bool wasPlaying = false;
     bool isMuted = false;
@@ -16,6 +19,7 @@ private:
 
     double currentSampleRate = 0.0;
 
+    // A-B loop state
     bool isABLoopEnabled = false;
     double markerA = -1.0;
     double markerB = -1.0;
@@ -53,6 +57,7 @@ public:
     void addtoPlaylist(const juce::Array<juce::File>& files);
     void loadFromPlaylist(int i);
 
+    // A-B loop API
     void setMarkerA();
     void setMarkerB();
     void clearMarkers();
@@ -69,5 +74,12 @@ public:
     int getMarkerCount() const { return trackMarkers.size(); }
     double getMarkerTime(int index) const;
     void clearTrackMarkers();
+
+    //save and load session
+    void saveSession();
+    void loadSession();
+    float getCurrentVolume() const { return currentVolume; }
+    juce::String getCurrentSongPath() const { return currentSong; }
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerAudio)
 };

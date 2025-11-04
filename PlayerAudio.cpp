@@ -1,5 +1,7 @@
 #include "PlayerAudio.h"
-
+#include <fstream>
+#include <string>
+#include <iostream>
 juce::File loadedFile;
 
 PlayerAudio::PlayerAudio() {
@@ -17,10 +19,70 @@ juce::String PlayerAudio::formatTime(double seconds) {
     return juce::String::formatted("%02d:%02d", minutes, secs);
 }
 
+void PlayerAudio::saveSession()
+{
+    currentPosition = transportSource.getCurrentPosition();
+    std::string song = currentSong.toStdString();
+
+    std::ofstream outFile("session.txt");
+
+    if (outFile.is_open())
+    {
+        outFile << song << std::endl;
+        outFile << currentPosition << std::endl;
+        outFile << currentVolume << std::endl;
+        outFile.close();
+
+        std::cout << "Session saved" << std::endl;
+    }
+    else
+    {
+        std::cout << "Could not save session file." << std::endl;
+    }
+
+    
+}
+
+
+void PlayerAudio::loadSession()
+{
+    std::ifstream inFile("session.txt");
+
+    if (inFile.is_open())
+    {
+        std::string song;
+        std::getline(inFile, song);
+        inFile >> currentPosition;
+        inFile >> currentVolume;
+        inFile.close();
+
+        currentSong = juce::String(song);
+
+        std::cout << "Session loaded successfully!" << std::endl;
+        if (currentSong.isNotEmpty())
+        {
+            juce::File lastFile(currentSong);
+            if (lastFile.existsAsFile())
+            {
+                loadFile(lastFile);
+                transportSource.setPosition(currentPosition);
+                transportSource.setGain(currentVolume);
+            }
+        }
+    }
+    else
+    {
+        std::cout << "No saved session found." << std::endl;
+    }
+
+}
+
+
 void PlayerAudio::prepareToPlay(int samplesPerBlockExpected, double sampleRate) {
     transportSource.prepareToPlay(samplesPerBlockExpected, sampleRate);
 }
 
+//playlist
 void PlayerAudio::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) {
     transportSource.getNextAudioBlock(bufferToFill);
 }
@@ -47,9 +109,11 @@ bool PlayerAudio::loadFile(const juce::File& file) {
                 NULL,
                 currentSampleRate);
 
+            // Clear A-B markers on new file load
             clearMarkers();
             clearTrackMarkers();
-
+            
+            currentSong = file.getFullPathName(); // newww
             loadedFile = file;
             return true;
         }
@@ -57,6 +121,7 @@ bool PlayerAudio::loadFile(const juce::File& file) {
     return false;
 }
 
+//file info
 juce::String PlayerAudio::getMetadataInfo()
 {
     if (!loadedFile.existsAsFile())
@@ -68,9 +133,9 @@ juce::String PlayerAudio::getMetadataInfo()
         info += "File: " + loadedFile.getFileName() + "\n";
         info += "Size: " + juce::String(loadedFile.getSize() / 1024) + " KB\n";
         info += "Duration: " + formatTime(reader->lengthInSamples / reader->sampleRate) + "\n";
-        
+
         juce::StringPairArray  metadata = reader->metadataValues;
-        
+
         juce::String author;
         author = metadata.getValue("artist", "");
         if (author.isEmpty())
@@ -106,6 +171,7 @@ juce::String PlayerAudio::getMetadataInfo()
     return "Error reading file";
 }
 
+//add files
 void PlayerAudio::addtoPlaylist(const juce::Array<juce::File>& files) {
 
     for (auto& f : files) {
@@ -113,7 +179,7 @@ void PlayerAudio::addtoPlaylist(const juce::Array<juce::File>& files) {
     }
 
 }
-
+//load files
 void PlayerAudio::loadFromPlaylist(int i) {
     juce::File file(playlist[i]);
     loadFile(file);
@@ -158,7 +224,7 @@ void PlayerAudio::performLoop() {
         double markerATime = markerA * len;
         double markerBTime = markerB * len;
         double absPos = transportSource.getCurrentPosition();
-        
+
         if (absPos >= markerBTime || absPos < markerATime || transportSource.hasStreamFinished()) {
             setPositionNormalized(markerA);
             if (!transportSource.isPlaying()) {
@@ -194,6 +260,7 @@ void PlayerAudio::setGain(float gain, bool mute)
         {
             transportSource.setGain(gain);
             lastGain = gain;
+            
         }
     }
 }
@@ -225,6 +292,7 @@ void PlayerAudio::setPositionNormalized(double normalizedPos) {
     double len = transportSource.getLengthInSeconds();
     if (len <= 0.0) return;
     transportSource.setPosition(normalizedPos * len);
+    currentPosition = normalizedPos * len;
 }
 
 void PlayerAudio::setSpeed(double speed)
@@ -246,6 +314,7 @@ void PlayerAudio::setSpeed(double speed)
     }
 }
 
+// A-B loop methods
 void PlayerAudio::setMarkerA() {
     markerA = juce::jlimit(0.0, 1.0, getPositionNormalized());
     if (markerB >= 0 && markerA >= markerB) {
@@ -272,6 +341,8 @@ void PlayerAudio::toggleABLoop() {
         isABLoopEnabled = false;
     }
 }
+
+//new yehiia
 
 double PlayerAudio::getMarkerA() const {
     return markerA;
@@ -321,3 +392,5 @@ double PlayerAudio::getMarkerTime(int index) const {
 void PlayerAudio::clearTrackMarkers() {
     trackMarkers.clear();
 }
+
+

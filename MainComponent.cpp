@@ -9,12 +9,20 @@ MainComponent::MainComponent()
     setSize(900, 600);
     setAudioChannels(0, 2);
 
+    playerAudio.loadSession();
+
+    if (playerAudio.getCurrentSongPath().isNotEmpty())
+    {
+        playerGui.loadSessionState(playerAudio.getCurrentSongPath(),playerAudio.getCurrentVolume());
+    }
+
 
 }
 
 
 MainComponent::~MainComponent()
 {
+    playerAudio.saveSession();
     shutdownAudio();
 }
 

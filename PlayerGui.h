@@ -7,8 +7,7 @@ class PlayerGui;
 
 class MarkerRowComponent : public juce::Component, public juce::Button::Listener {
 public:
-    MarkerRowComponent(PlayerAudio* audio, int markerIndex, std::function<void()> onUpdate)
-        : playerAudio(audio), index(markerIndex), updateCallback(onUpdate)
+    MarkerRowComponent(PlayerAudio* audio, int markerIndex, std::function<void()> onUpdate): playerAudio(audio), index(markerIndex), updateCallback(onUpdate)
     {
         setVisible(true);
         setEnabled(true);
@@ -38,14 +37,14 @@ public:
 
         double markerTime = playerAudio->getMarkerTime(index);
         if (markerTime < 0) return;
-        
+
         int minutes = (int)(markerTime / 60);
         int secs = (int)(markerTime) % 60;
         juce::String markerText = juce::String::formatted("Marker %d (%02d:%02d)", index + 1, minutes, secs);
 
         g.setColour(juce::Colours::white);
-        g.drawText(markerText, 4, 0, (textAreaWidth > 0 ? textAreaWidth : getWidth() - 90), 
-                   getHeight(), juce::Justification::centredLeft);
+        g.drawText(markerText, 4, 0, (textAreaWidth > 0 ? textAreaWidth : getWidth() - 90),
+            getHeight(), juce::Justification::centredLeft);
     }
 
     void buttonClicked(juce::Button* button) override {
@@ -59,7 +58,7 @@ public:
         }
     }
 
-    void updateIndex(int newIndex) { 
+    void updateIndex(int newIndex) {
         index = newIndex;
         setVisible(true);
         setEnabled(true);
@@ -67,7 +66,7 @@ public:
             btn->setEnabled(true);
             btn->setVisible(true);
         }
-        repaint(); 
+        repaint();
     }
 
 private:
@@ -84,11 +83,12 @@ public:
     MarkerListModel(PlayerAudio* audio, PlayerGui* gui) : playerAudio(audio), playerGui(gui) {}
     int getNumRows() override;
     void paintListBoxItem(int rowNumber, juce::Graphics& g, int width, int height, bool rowIsSelected) override;
-    Component* refreshComponentForRow(int rowNumber, bool isRowSelected, Component* existingComponentToUpdate) override;
+    juce::Component* refreshComponentForRow(int rowNumber, bool isRowSelected, juce::Component* existingComponentToUpdate) override;
     void selectedRowsChanged(int lastRowSelected) override;
     PlayerAudio* playerAudio = nullptr;
     PlayerGui* playerGui = nullptr;
 };
+
 
 class PlayerGui : public juce::Component,
     public juce::Button::Listener,
@@ -105,7 +105,7 @@ public:
         markersListModel.playerAudio = audio;
         markersListModel.playerGui = this;
     }
-    
+
     void updateMarkersList() {
         markersListBox.updateContent();
         markersListBox.repaint();
@@ -113,6 +113,7 @@ public:
 
     void paint(juce::Graphics& g) override;
     void resized() override;
+    void loadSessionState(const juce::String& filePath, float volume);
 
 private:
     PlayerAudio* playerAudio = nullptr;
@@ -136,7 +137,7 @@ private:
     double progressValue = 0.0;
     juce::ProgressBar progressBar{ progressValue };
 
-    
+    //AB controls
     juce::TextButton setMarkerAButton{ "Set A" };
     juce::TextButton setMarkerBButton{ "Set B" };
     juce::TextButton abLoopButton{ "A-B Loop" };
@@ -145,7 +146,7 @@ private:
 
     juce::TextButton setMarkerButton{ "Set Marker" };
     juce::ListBox markersListBox;
-    MarkerListModel markersListModel{ nullptr, this };
+    MarkerListModel markersListModel; //edited here
 
     std::unique_ptr<juce::FileChooser> fileChooser;
 
@@ -156,10 +157,12 @@ private:
     void timerCallback() override;
     juce::String formatTime(double seconds);
 
+
+    //
     juce::ListBox PlaylistBox;
-    juce::TextButton AddButton{"Add Files"};
+    juce::TextButton AddButton{ "Add Files" };
     int getNumRows() override;
-    void paintListBoxItem(int rowNumber, juce::Graphics& g,int width, int height, bool rowIsSelected) override;
+    void paintListBoxItem(int rowNumber, juce::Graphics& g, int width, int height, bool rowIsSelected) override;
 
     void selectedRowsChanged(int lastRowSelected) override;
 

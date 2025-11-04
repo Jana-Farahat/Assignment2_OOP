@@ -19,7 +19,7 @@ public:
     {
         playerGui.setBounds(getLocalBounds());  
     }
-    
+   
 
 private:    
 
