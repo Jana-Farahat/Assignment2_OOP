@@ -26,8 +26,7 @@ void PlayerAudio::saveSession()
 
     std::ofstream outFile("session.txt");
 
-    if (outFile.is_open())
-    {
+    if (outFile.is_open()) {
         outFile << song << std::endl;
         outFile << currentPosition << std::endl;
         outFile << currentVolume << std::endl;
@@ -35,8 +34,7 @@ void PlayerAudio::saveSession()
 
         std::cout << "Session saved" << std::endl;
     }
-    else
-    {
+    else {
         std::cout << "Could not save session file." << std::endl;
     }
 
@@ -48,8 +46,7 @@ void PlayerAudio::loadSession()
 {
     std::ifstream inFile("session.txt");
 
-    if (inFile.is_open())
-    {
+    if (inFile.is_open()) {
         std::string song;
         std::getline(inFile, song);
         inFile >> currentPosition;
@@ -59,19 +56,16 @@ void PlayerAudio::loadSession()
         currentSong = juce::String(song);
 
         std::cout << "Session loaded successfully!" << std::endl;
-        if (currentSong.isNotEmpty())
-        {
+        if (currentSong.isNotEmpty()) {
             juce::File lastFile(currentSong);
-            if (lastFile.existsAsFile())
-            {
+            if (lastFile.existsAsFile()) {
                 loadFile(lastFile);
                 transportSource.setPosition(currentPosition);
                 transportSource.setGain(currentVolume);
             }
         }
     }
-    else
-    {
+    else {
         std::cout << "No saved session found." << std::endl;
     }
 
@@ -92,10 +86,8 @@ void PlayerAudio::releaseResources() {
 }
 
 bool PlayerAudio::loadFile(const juce::File& file) {
-    if (file.existsAsFile())
-    {
-        if (auto* reader = formatManager.createReaderFor(file))
-        {
+    if (file.existsAsFile()) {
+        if (auto* reader = formatManager.createReaderFor(file)) {
             transportSource.stop();
             transportSource.setSource(NULL);
             readerSource.reset();
@@ -127,8 +119,7 @@ juce::String PlayerAudio::getMetadataInfo()
     if (!loadedFile.existsAsFile())
         return "No file loaded";
 
-    if (auto* reader = formatManager.createReaderFor(loadedFile))
-    {
+    if (auto* reader = formatManager.createReaderFor(loadedFile)) {
         juce::String info;
         info += "File: " + loadedFile.getFileName() + "\n";
         info += "Size: " + juce::String(loadedFile.getSize() / 1024) + " KB\n";
@@ -149,20 +140,17 @@ juce::String PlayerAudio::getMetadataInfo()
 
         ///If there exist a metadata it will print the following
 
-        if (metadata.size() > 0)
-        {
+        if (metadata.size() > 0) {
             info += "Metadata keys:\n";
             juce::StringArray keys = metadata.getAllKeys();
 
-            for (int i = 0; i < keys.size(); i++)
-            {
+            for (int i = 0; i < keys.size(); i++) {
                 juce::String key = keys[i];
                 juce::String value = metadata.getValue(key, "EMPTY");
                 info += key + " = " + value + "'\n";
             }
         }
-        else
-        {
+        else {
             info += "NO METADATA FOUND \n";
         }
         return info;
@@ -227,9 +215,8 @@ void PlayerAudio::performLoop() {
 
         if (absPos >= markerBTime || absPos < markerATime || transportSource.hasStreamFinished()) {
             setPositionNormalized(markerA);
-            if (!transportSource.isPlaying()) {
+            if (!transportSource.isPlaying())
                 transportSource.start();
-            }
         }
     }
     else if (isLooping && transportSource.hasStreamFinished()) {
@@ -240,24 +227,19 @@ void PlayerAudio::performLoop() {
 
 void PlayerAudio::setGain(float gain, bool mute)
 {
-    if (mute)
-    {
+    if (mute) {
         isMuted = !isMuted;
 
-        if (isMuted)
-        {
+        if (isMuted) {
             lastGain = transportSource.getGain();
             transportSource.setGain(0.0f);
         }
-        else
-        {
+        else {
             transportSource.setGain(lastGain);
         }
     }
-    else
-    {
-        if (!isMuted)
-        {
+    else {
+        if (!isMuted) {
             transportSource.setGain(gain);
             lastGain = gain;
             
@@ -284,21 +266,22 @@ double PlayerAudio::getLength() const {
 
 double PlayerAudio::getPositionNormalized() const {
     double len = transportSource.getLengthInSeconds();
-    if (len <= 0.0) return 0.0;
+    if (len <= 0.0)
+        return 0.0;
     return transportSource.getCurrentPosition() / len;
 }
 
 void PlayerAudio::setPositionNormalized(double normalizedPos) {
     double len = transportSource.getLengthInSeconds();
-    if (len <= 0.0) return;
+    if (len <= 0.0)
+        return;
     transportSource.setPosition(normalizedPos * len);
     currentPosition = normalizedPos * len;
 }
 
 void PlayerAudio::setSpeed(double speed)
 {
-    if (readerSource != NULL && currentSampleRate > 0.0)
-    {
+    if (readerSource != NULL && currentSampleRate > 0.0) {
         bool playing = transportSource.isPlaying();
         double normalizedPos = getPositionNormalized();
 
@@ -317,16 +300,14 @@ void PlayerAudio::setSpeed(double speed)
 // A-B loop methods
 void PlayerAudio::setMarkerA() {
     markerA = juce::jlimit(0.0, 1.0, getPositionNormalized());
-    if (markerB >= 0 && markerA >= markerB) {
+    if (markerB >= 0 && markerA >= markerB)
         markerB = -1.0;
-    }
 }
 
 void PlayerAudio::setMarkerB() {
     markerB = juce::jlimit(0.0, 1.0, getPositionNormalized());
-    if (markerA >= 0 && markerB <= markerA) {
+    if (markerA >= 0 && markerB <= markerA)
         markerA = -1.0;
-    }
 }
 
 void PlayerAudio::clearMarkers() {
@@ -337,9 +318,8 @@ void PlayerAudio::clearMarkers() {
 
 void PlayerAudio::toggleABLoop() {
     isABLoopEnabled = !isABLoopEnabled;
-    if (isABLoopEnabled && (markerA < 0 || markerB < 0 || markerB <= markerA)) {
+    if (isABLoopEnabled && (markerA < 0 || markerB < 0 || markerB <= markerA))
         isABLoopEnabled = false;
-    }
 }
 
 //new yehiia
@@ -370,18 +350,16 @@ void PlayerAudio::addTrackMarker() {
 }
 
 void PlayerAudio::removeTrackMarker(int index) {
-    if (index >= 0 && index < trackMarkers.size()) {
+    if (index >= 0 && index < trackMarkers.size())
         trackMarkers.remove(index);
-    }
 }
 
 void PlayerAudio::jumpToMarker(int index) {
     if (index >= 0 && index < trackMarkers.size()) {
         double normalizedPos = trackMarkers[index];
         setPositionNormalized(normalizedPos);
-        if (!transportSource.isPlaying()) {
+        if (!transportSource.isPlaying())
             transportSource.start();
-        }
     }
 }
 
@@ -400,8 +378,9 @@ void PlayerAudio::tenSec(bool forward)
 
     if (forward)
         newPosition += 10.0;
-    else
+    else {
         newPosition -= 10.0;
+    }
 
     if (newPosition < 0)
         newPosition = 0;

@@ -6,13 +6,12 @@ MainComponent::MainComponent()
 {
     playerGui.setPlayerAudio(&playerAudio);
     addAndMakeVisible(playerGui);
-    setSize(900, 600);
+    setSize(1400, 650);
     setAudioChannels(0, 2);
 
     playerAudio.loadSession();
 
-    if (playerAudio.getCurrentSongPath().isNotEmpty())
-    {
+    if (playerAudio.getCurrentSongPath().isNotEmpty()) {
         playerGui.loadSessionState(playerAudio.getCurrentSongPath(),playerAudio.getCurrentVolume());
     }
 
@@ -34,7 +33,7 @@ void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate
 void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill)
 {
     playerAudio.getNextAudioBlock(bufferToFill);
-    playerAudio.performLoop(); //check for loop and restart if loop toggled to true
+    playerAudio.performLoop();
 }
 
 void MainComponent::releaseResources()
