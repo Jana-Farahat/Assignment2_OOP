@@ -106,6 +106,13 @@ PlayerGui::PlayerGui() : markersListModel(nullptr, this) {
     markersListBox.setModel(&markersListModel);
 
     startTimer(100);
+
+    addAndMakeVisible(forward10sButton);
+    addAndMakeVisible(backward10sButton);
+
+    forward10sButton.addListener(this);
+    backward10sButton.addListener(this);
+
 }
 
 int PlayerGui::getNumRows()
@@ -173,6 +180,9 @@ void PlayerGui::resized()
     setMarkerBButton.setBounds(120, y2, 80, 30);
     abLoopButton.setBounds(220, y2, 80, 30);
     clearMarkersButton.setBounds(320, y2, 80, 30);
+    backward10sButton.setBounds(420, y2, 80, 30);
+    forward10sButton.setBounds(520, y2, 80, 30);
+
 
     setMarkerButton.setBounds(rightPanelX, y2, 120, 30);
     markersListBox.setBounds(rightPanelX, listY, rightPanelWidth, listHeight);
@@ -272,6 +282,16 @@ void PlayerGui::buttonClicked(juce::Button* button)
                 PlaylistBox.repaint();
             });
     }
+
+    else if (button == &forward10sButton)
+    {
+        playerAudio->tenSec(true);
+    }
+    else if (button == &backward10sButton)
+    {
+        playerAudio->tenSec(false);
+    }
+
 }
 void PlayerGui::selectedRowsChanged(int row)
 {

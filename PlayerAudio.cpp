@@ -394,3 +394,19 @@ void PlayerAudio::clearTrackMarkers() {
 }
 
 
+void PlayerAudio::tenSec(bool forward)
+{
+    double newPosition = transportSource.getCurrentPosition();
+
+    if (forward)
+        newPosition += 10.0;
+    else
+        newPosition -= 10.0;
+
+    if (newPosition < 0)
+        newPosition = 0;
+    if (newPosition > transportSource.getLengthInSeconds())
+        newPosition = transportSource.getLengthInSeconds();
+
+    transportSource.setPosition(newPosition);
+}

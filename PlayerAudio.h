@@ -81,5 +81,8 @@ public:
     float getCurrentVolume() const { return currentVolume; }
     juce::String getCurrentSongPath() const { return currentSong; }
 
+    void tenSec(bool forward);
+
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerAudio)
 };

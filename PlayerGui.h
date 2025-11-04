@@ -150,6 +150,10 @@ private:
 
     std::unique_ptr<juce::FileChooser> fileChooser;
 
+    juce::TextButton forward10sButton{ ">> 10s" };
+    juce::TextButton backward10sButton{ "<< 10s" };
+
+
     void buttonClicked(juce::Button* button) override;
     void sliderValueChanged(juce::Slider* slider) override;
     void sliderDragStarted(juce::Slider* slider) override;
