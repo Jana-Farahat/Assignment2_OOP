@@ -7,10 +7,14 @@ private:
     std::unique_ptr<juce::AudioFormatReaderSource> readerSource;
     juce::AudioTransportSource transportSource;
 
-   
+ 
+    double lastKnownPosition = 0.0;
+
     juce::String currentSong;
     double currentPosition = 0.0;
     float currentVolume = 1.0f;
+
+    
 
     bool isLooping = false;
     bool wasPlaying = false;
@@ -24,6 +28,10 @@ private:
     double markerB = -1.0;
 
     juce::Array<double> trackMarkers;
+
+    juce::File loadedFile; //edit
+
+    bool sessionFileLoaded = false;
 
 public:
     juce::Array<juce::File> playlist;
@@ -46,7 +54,7 @@ public:
     void setGain(float gain);
     void setGain(float gain, bool isMute);
     void setPosition(double pos);
-    double getPosition() const;
+    double getPosition() ;
     double getLength() const;
     void setPositionNormalized(double normalizedPos);
     double getPositionNormalized() const;
@@ -73,8 +81,8 @@ public:
     double getMarkerTime(int index) const;
     void clearTrackMarkers();
 
-    void saveSession();
-    void loadSession();
+    void saveSession(const juce::File& sessionFile);
+    void loadSession(const juce::File& sessionFile);
     float getCurrentVolume() const { return currentVolume; }
     juce::String getCurrentSongPath() const { return currentSong; }
 
@@ -82,7 +90,6 @@ public:
 
     bool getIsMuted() const { return isMuted; }
     bool isPlaying() const { return transportSource.isPlaying(); }
-
-
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerAudio)
 };

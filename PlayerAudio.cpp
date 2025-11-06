@@ -2,7 +2,7 @@
 #include <fstream>
 #include <string>
 #include <iostream>
-juce::File loadedFile;
+
 
 PlayerAudio::PlayerAudio() {
     formatManager.registerBasicFormats();
@@ -19,61 +19,116 @@ juce::String PlayerAudio::formatTime(double seconds) {
     return juce::String::formatted("%02d:%02d", minutes, secs);
 }
 
-void PlayerAudio::saveSession()
+
+void PlayerAudio::saveSession(const juce::File& sessionFile)
 {
-    currentPosition = transportSource.getCurrentPosition();
-    std::string song = currentSong.toStdString();
+ 
+    juce::String song = currentSong;
 
-    std::ofstream outFile("session.txt");
+    DBG("Saving session for: " + sessionFile.getFileName() +
+        " - Position: " + juce::String(currentPosition) +
+        ", Song: " + song +
+        ", Playlist size: " + juce::String(playlist.size()));
 
-    if (outFile.is_open()) {
-        outFile << song << std::endl;
-        outFile << currentPosition << std::endl;
-        outFile << currentVolume << std::endl;
-        outFile.close();
-
-        std::cout << "Session saved" << std::endl;
+    std::unique_ptr<juce::FileOutputStream> stream(sessionFile.createOutputStream());
+    if (stream == nullptr) {
+        DBG("Could not open session file for writing: " + sessionFile.getFullPathName());
+        return;
     }
-    else {
-        std::cout << "Could not save session file." << std::endl;
+
+ 
+    stream->writeString(song + "\n");
+    stream->writeString(juce::String(currentPosition) + "\n");
+    stream->writeString(juce::String(currentVolume) + "\n");
+
+    
+    stream->writeString(juce::String(playlist.size()) + "\n");
+    for (const auto& file : playlist) {
+        stream->writeString(file.getFullPathName() + "\n");
+        DBG("Saving playlist file: " + file.getFullPathName());
+    }
+
+ 
+    stream->writeString(juce::String(trackMarkers.size()) + "\n");
+    for (const auto& marker : trackMarkers) {
+        stream->writeString(juce::String(marker) + "\n");
     }
 
     
+    stream->flush();
+    stream.reset();
+
+    DBG("Session saved successfully to: " + sessionFile.getFullPathName());
 }
 
-
-void PlayerAudio::loadSession()
+void PlayerAudio::loadSession(const juce::File& sessionFile)
 {
-    std::ifstream inFile("session.txt");
+    if (!sessionFile.existsAsFile()) {
+        
+        DBG("No saved session found for: " + sessionFile.getFullPathName());
+        return;
+    }
 
-    if (inFile.is_open()) {
-        std::string song;
-        std::getline(inFile, song);
-        inFile >> currentPosition;
-        inFile >> currentVolume;
-        inFile.close();
+    std::unique_ptr<juce::FileInputStream> stream(sessionFile.createInputStream());
+    if (stream == nullptr) {
+        DBG("Could not open session file for reading: " + sessionFile.getFullPathName());
+        return;
+    }
 
-        currentSong = juce::String(song);
+    currentSong = stream->readNextLine();
+    loadedFile = juce::File(currentSong);
+    currentPosition = stream->readNextLine().getDoubleValue();
+    currentVolume = stream->readNextLine().getFloatValue();
 
-        std::cout << "Session loaded successfully!" << std::endl;
+    playlist.clear();
+    int numTracks = stream->readNextLine().getIntValue();
+    for (int i = 0; i < numTracks; ++i) {
+        juce::String trackPath = stream->readNextLine();
+        if (trackPath.isNotEmpty()) {
+            juce::File file(trackPath);
+            playlist.add(file);
+        }
+    }
+
+    trackMarkers.clear();
+    int numMarkers = stream->readNextLine().getIntValue();
+    for (int i = 0; i < numMarkers; ++i) {
+        double marker = stream->readNextLine().getDoubleValue();
+        trackMarkers.add(marker);
+    }
+
+    
+    sessionFileLoaded = true;
+
+    DBG("Session loaded - File: " + currentSong + ", Position: " + juce::String(currentPosition));
+}
+void PlayerAudio::prepareToPlay(int samplesPerBlockExpected, double sampleRate) {
+    transportSource.prepareToPlay(samplesPerBlockExpected, sampleRate);
+
+   
+    if (sessionFileLoaded)
+    {
         if (currentSong.isNotEmpty()) {
             juce::File lastFile(currentSong);
             if (lastFile.existsAsFile()) {
-                loadFile(lastFile);
-                transportSource.setPosition(currentPosition);
-                transportSource.setGain(currentVolume);
+                bool loaded = loadFile(lastFile);
+                if (loaded) {
+                    setGain(currentVolume);
+
+                    if (currentPosition > 0.0) {
+                        double length = getLength();
+                        if (length > 0.0) {
+                            double newPos = juce::jmin(currentPosition, length);
+                            transportSource.setPosition(newPos);
+                            DBG("Position restored in prepareToPlay: " + juce::String(newPos));
+                        }
+                    }
+                }
             }
         }
+       
+        sessionFileLoaded = false;
     }
-    else {
-        std::cout << "No saved session found." << std::endl;
-    }
-
-}
-
-
-void PlayerAudio::prepareToPlay(int samplesPerBlockExpected, double sampleRate) {
-    transportSource.prepareToPlay(samplesPerBlockExpected, sampleRate);
 }
 
 //playlist
@@ -101,17 +156,27 @@ bool PlayerAudio::loadFile(const juce::File& file) {
                 NULL,
                 currentSampleRate);
 
-            // Clear A-B markers on new file load
             clearMarkers();
             clearTrackMarkers();
-            
-            currentSong = file.getFullPathName(); // newww
+
+            currentSong = file.getFullPathName();
             loadedFile = file;
+
+            
+            sessionFileLoaded = false;
+
+           
+            currentPosition = 0.0;
+
+            setGain(currentVolume);
+
             return true;
         }
     }
     return false;
 }
+
+
 
 //file info
 juce::String PlayerAudio::getMetadataInfo()
@@ -180,13 +245,15 @@ void PlayerAudio::play() {
 }
 
 void PlayerAudio::stop() {
+    currentPosition = 0.0; 
     transportSource.stop();
     transportSource.setPosition(0.0);
 }
 
 void PlayerAudio::pause() {
+    currentPosition = transportSource.getCurrentPosition(); 
     transportSource.stop();
-    transportSource.setPosition(transportSource.getCurrentPosition());
+    transportSource.setPosition(currentPosition);
 }
 
 void PlayerAudio::goToEnd() {
@@ -242,7 +309,7 @@ void PlayerAudio::setGain(float gain, bool mute)
         if (!isMuted) {
             transportSource.setGain(gain);
             lastGain = gain;
-            
+
         }
     }
 }
@@ -250,13 +317,18 @@ void PlayerAudio::setGain(float gain, bool mute)
 void PlayerAudio::setGain(float gain)
 {
     setGain(gain, false);
+    currentVolume = gain; //edit
 }
 
 void PlayerAudio::setPosition(double pos) {
     transportSource.setPosition(pos);
 }
 
-double PlayerAudio::getPosition() const {
+double PlayerAudio::getPosition() { 
+    if (transportSource.isPlaying())
+    {
+        currentPosition = transportSource.getCurrentPosition();
+    }
     return transportSource.getCurrentPosition();
 }
 
@@ -297,7 +369,6 @@ void PlayerAudio::setSpeed(double speed)
     }
 }
 
-// A-B loop methods
 void PlayerAudio::setMarkerA() {
     markerA = juce::jlimit(0.0, 1.0, getPositionNormalized());
     if (markerB >= 0 && markerA >= markerB)
@@ -389,3 +460,4 @@ void PlayerAudio::tenSec(bool forward)
 
     transportSource.setPosition(newPosition);
 }
+

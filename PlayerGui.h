@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <JuceHeader.h>
 #include "PlayerAudio.h"
 
@@ -63,7 +63,7 @@ public:
             btn->setEnabled(true);
         }
     }
-    
+
     ~ListRowComponent() {
         actionButton.setLookAndFeel(nullptr);
         removeButton.setLookAndFeel(nullptr);
@@ -89,76 +89,7 @@ public:
         textAreaWidth = getWidth() - buttonArea;
     }
 
-    void paint(juce::Graphics& g) override {
-        if (getWidth() <= 0)
-            return;
-
-        g.setColour(juce::Colours::white);
-        g.setFont(juce::FontOptions().withHeight(20.0f));
-        
-        if (rowMode == ListMode::Markers) {
-            if (index >= playerAudio->getMarkerCount())
-                return;
-            double markerTime = playerAudio->getMarkerTime(index);
-            if (markerTime < 0)
-                return;
-            int hours = (int)(markerTime / 3600);
-            int minutes = (int)((markerTime - hours * 3600) / 60);
-            int secs = (int)(markerTime) % 60;
-            juce::String markerText = juce::String::formatted("Marker %d", index + 1);
-            juce::String timeText = juce::String::formatted("%02d:%02d:%02d", hours, minutes, secs);
-            
-            int buttonArea = 110;
-            int timeColWidth = 80;
-            int markerColWidth = getWidth() - buttonArea - timeColWidth - 8;
-            
-            g.drawText(markerText, 4, 0, markerColWidth, getHeight(), juce::Justification::centredLeft);
-            g.drawText(timeText, markerColWidth + 12, 0, timeColWidth, getHeight(), juce::Justification::centredLeft);
-        }
-        else {
-            PlayerAudio* targetAudio = playerAudio;
-            if (rowMode == ListMode::PlaylistRight && playerAudioRight != nullptr)
-                targetAudio = playerAudioRight;
-            if (index >= targetAudio->playlist.size())
-                return;
-            juce::File file = targetAudio->playlist[index];
-            juce::String fileName = file.getFileName();
-            
-            juce::String durationText = "--:--";
-            juce::String currentPath = targetAudio->getCurrentSongPath();
-            if (currentPath.isNotEmpty() && file.getFullPathName() == currentPath) {
-                double duration = targetAudio->getLength();
-                if (duration > 0) {
-                    int hours = (int)(duration / 3600);
-                    int minutes = (int)((duration - hours * 3600) / 60);
-                    int secs = (int)(duration) % 60;
-                    durationText = juce::String::formatted("%02d:%02d:%02d", hours, minutes, secs);
-                }
-            }
-            else {
-                juce::AudioFormatManager formatManager;
-                formatManager.registerBasicFormats();
-                std::unique_ptr<juce::AudioFormatReader> reader(formatManager.createReaderFor(file));
-                if (reader != nullptr) {
-                    double duration = reader->lengthInSamples / reader->sampleRate;
-                    if (duration > 0) {
-                        int hours = (int)(duration / 3600);
-                        int minutes = (int)((duration - hours * 3600) / 60);
-                        int secs = (int)(duration) % 60;
-                        durationText = juce::String::formatted("%02d:%02d:%02d", hours, minutes, secs);
-                    }
-                }
-            }
-            
-            int trackColWidth = (int)(getWidth() * 0.4f);
-            int durationColWidth = (int)(getWidth() * 0.25f);
-            g.drawText(fileName, 4, 0, trackColWidth, getHeight(), juce::Justification::centredLeft);
-            g.drawText(durationText, trackColWidth + 4, 0, durationColWidth, getHeight(), juce::Justification::centredLeft);
-            g.setColour(juce::Colours::grey);
-            g.drawLine((float)(trackColWidth + 2), 0.0f, (float)(trackColWidth + 2), (float)getHeight(), 1.0f);
-            g.drawLine((float)(trackColWidth + durationColWidth + 2), 0.0f, (float)(trackColWidth + durationColWidth + 2), (float)getHeight(), 1.0f);
-        }
-    }
+    void paint(juce::Graphics& g) override;
 
     void buttonClicked(juce::Button* button) override;
 
@@ -189,8 +120,9 @@ private:
 
 class ListModel : public juce::ListBoxModel {
 public:
-    ListModel(PlayerAudio* audio, PlayerAudio* audioRight, PlayerGui* gui, ListMode mode) 
-        : playerAudio(audio), playerAudioRight(audioRight), playerGui(gui), listMode(mode) {}
+    ListModel(PlayerAudio* audio, PlayerAudio* audioRight, PlayerGui* gui, ListMode mode)
+        : playerAudio(audio), playerAudioRight(audioRight), playerGui(gui), listMode(mode) {
+    }
     int getNumRows() override;
     void paintListBoxItem(int rowNumber, juce::Graphics& g, int width, int height, bool rowIsSelected) override;
     juce::Component* refreshComponentForRow(int rowNumber, bool isRowSelected, juce::Component* existingComponentToUpdate) override;
@@ -221,7 +153,7 @@ public:
         markersListModelLeft.playerGui = this;
         markersListModelRight.playerAudio = audioRight;
         markersListModelRight.playerGui = this;
-        
+
         PlaylistBox.setModel(&playlistListModel);
         markersListBoxLeft.setModel(&markersListModelLeft);
         markersListBoxRight.setModel(&markersListModelRight);
@@ -241,7 +173,7 @@ public:
         PlaylistBox.updateContent();
         PlaylistBox.repaint();
     }
-    
+
     void updateMetadataLeft() {
         if (playerAudioLeft != nullptr) {
             juce::String metadata = "Currently playing:\n" + playerAudioLeft->getMetadataInfo();
@@ -262,6 +194,8 @@ public:
 
     PlayerAudio* playerAudioLeft = nullptr;
     PlayerAudio* playerAudioRight = nullptr;
+
+    void restoreGUIFromSession();
 
 private:
 
@@ -323,9 +257,16 @@ private:
     juce::ListBox PlaylistBox;
     juce::ListBox markersListBoxLeft;
     juce::ListBox markersListBoxRight;
-    ListModel markersListModelLeft{nullptr, nullptr, this, ListMode::Markers};
-    ListModel markersListModelRight{nullptr, nullptr, this, ListMode::Markers};
-    ListModel playlistListModel{nullptr, nullptr, this, ListMode::Playlist};
+    ListModel markersListModelLeft{ nullptr, nullptr, this, ListMode::Markers };
+    ListModel markersListModelRight{ nullptr, nullptr, this, ListMode::Markers };
+    ListModel playlistListModel{ nullptr, nullptr, this, ListMode::Playlist };
+
+
+    juce::TextButton resetLeftButton{ "RESET L" };
+    juce::TextButton resetRightButton{ "RESET R" };
+    void resetLeftPlayer();
+    void resetRightPlayer();
+    BigButtonLookAndFeel myButtonLookAndFeel;
 
     std::unique_ptr<juce::FileChooser> fileChooser;
 
@@ -340,6 +281,9 @@ private:
     juce::Image loadIconFromBinary(const void* data, size_t dataSize);
     void setupIconButton(juce::ImageButton* button, const juce::Image& icon);
     void updateMuteButtonIcon();
+   
 
+
+    
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerGui)
 };
