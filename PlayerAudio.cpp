@@ -23,6 +23,10 @@ juce::String PlayerAudio::formatTime(double seconds) {
 void PlayerAudio::saveSession(const juce::File& sessionFile)
 {
  
+    if (sessionFile.existsAsFile())
+    {
+        sessionFile.deleteFile();
+    }
     juce::String song = currentSong;
 
     DBG("Saving session for: " + sessionFile.getFileName() +
@@ -105,32 +109,36 @@ void PlayerAudio::loadSession(const juce::File& sessionFile)
 void PlayerAudio::prepareToPlay(int samplesPerBlockExpected, double sampleRate) {
     transportSource.prepareToPlay(samplesPerBlockExpected, sampleRate);
 
-   
+
     if (sessionFileLoaded)
     {
         if (currentSong.isNotEmpty()) {
             juce::File lastFile(currentSong);
+
             if (lastFile.existsAsFile()) {
+
+                double positionToRestore = currentPosition;
+
                 bool loaded = loadFile(lastFile);
+
                 if (loaded) {
                     setGain(currentVolume);
 
-                    if (currentPosition > 0.0) {
-                        double length = getLength();
-                        if (length > 0.0) {
-                            double newPos = juce::jmin(currentPosition, length);
-                            transportSource.setPosition(newPos);
-                            DBG("Position restored in prepareToPlay: " + juce::String(newPos));
-                        }
+                    if (positionToRestore > 0.0)
+                    {
+                        transportSource.setPosition(positionToRestore);
+
+                        currentPosition = positionToRestore;
+
+                        DBG("Position restore ATTEMPTED in prepareToPlay: " + juce::String(currentPosition));
                     }
                 }
             }
         }
-       
+
         sessionFileLoaded = false;
     }
 }
-
 //playlist
 void PlayerAudio::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) {
     transportSource.getNextAudioBlock(bufferToFill);
@@ -329,7 +337,7 @@ double PlayerAudio::getPosition() {
     {
         currentPosition = transportSource.getCurrentPosition();
     }
-    return transportSource.getCurrentPosition();
+    return currentPosition;
 }
 
 double PlayerAudio::getLength() const {
@@ -340,7 +348,12 @@ double PlayerAudio::getPositionNormalized() const {
     double len = transportSource.getLengthInSeconds();
     if (len <= 0.0)
         return 0.0;
-    return transportSource.getCurrentPosition() / len;
+    if (transportSource.isPlaying())
+    {
+        return transportSource.getCurrentPosition() / len;
+    }
+
+    return currentPosition / len;
 }
 
 void PlayerAudio::setPositionNormalized(double normalizedPos) {
@@ -461,3 +474,31 @@ void PlayerAudio::tenSec(bool forward)
     transportSource.setPosition(newPosition);
 }
 
+void PlayerAudio::resetToDefault()
+{
+    transportSource.stop();
+    transportSource.setSource(nullptr);
+
+  
+    currentSong = "";
+    currentPosition = 0.0;
+    currentVolume = 1.0f;
+    loadedFile = juce::File();
+
+    isLooping = false;
+    isMuted = false;
+    lastGain = 1.0f;
+
+    
+    clearMarkers();
+    clearTrackMarkers();
+    isABLoopEnabled = false;
+
+    
+    playlist.clear();
+
+   
+    readerSource.reset();
+
+    
+}

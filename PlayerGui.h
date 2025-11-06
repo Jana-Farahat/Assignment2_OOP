@@ -269,6 +269,7 @@ private:
     juce::TextButton resetRightButton{ "RESET R" };
     void resetLeftPlayer();
     void resetRightPlayer();
+    
     BigButtonLookAndFeel myButtonLookAndFeel;
 
     std::unique_ptr<juce::FileChooser> fileChooser;
@@ -284,9 +285,9 @@ private:
     juce::Image loadIconFromBinary(const void* data, size_t dataSize);
     void setupIconButton(juce::ImageButton* button, const juce::Image& icon);
     void updateMuteButtonIcon();
-   
-
 
     
+
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerGui)
 };

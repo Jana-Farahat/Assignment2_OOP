@@ -1,4 +1,4 @@
-#include "PlayerGui.h"
+﻿#include "PlayerGui.h"
 #include "BinaryData.h"
 
 
@@ -135,7 +135,7 @@ juce::Component* ListModel::refreshComponentForRow(int rowNumber, bool isRowSele
         PlayerAudio* targetAudio = playerAudio;
         if (playerGui != nullptr)
             targetAudio = playerGui->playerAudioLeft;
-            maxRows = targetAudio->playlist.size();
+        maxRows = targetAudio->playlist.size();
     }
     if (dataRowNumber < 0 || dataRowNumber >= maxRows) {
         if (existingComponentToUpdate != nullptr)
@@ -211,8 +211,8 @@ void ListRowComponent::buttonClicked(juce::Button* button) {
         if (updateCallback)
             updateCallback();
     }
-    
-    
+
+
 }
 
 
@@ -273,19 +273,22 @@ PlayerGui::PlayerGui() {
     resetLeftButton.setEnabled(true);
     resetRightButton.setEnabled(true);
 
-    resetLeftButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
-    resetLeftButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-
-    resetRightButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
-    resetRightButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
-
-    resetLeftButton.setLookAndFeel(&myButtonLookAndFeel);
-    resetRightButton.setLookAndFeel(&myButtonLookAndFeel);
+    resetLeftButton.setVisible(true);
+    resetRightButton.setVisible(true);
 
     addAndMakeVisible(&resetLeftButton);
     addAndMakeVisible(&resetRightButton);
 
+    resetLeftButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
+    resetLeftButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    resetLeftButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::darkred);
 
+    resetRightButton.setColour(juce::TextButton::buttonColourId, juce::Colours::red);
+    resetRightButton.setColour(juce::TextButton::textColourOffId, juce::Colours::white);
+    resetRightButton.setColour(juce::TextButton::buttonOnColourId, juce::Colours::darkred);
+
+    
+    
 
     fileInfoLabelLeft.setText("Currently playing:\nNo file loaded", juce::dontSendNotification);
     fileInfoLabelLeft.setColour(juce::Label::textColourId, juce::Colours::white);
@@ -353,7 +356,7 @@ PlayerGui::PlayerGui() {
 
     addAndMakeVisible(mixSlider);
     mixSlider.setRange(0.0, 1.0);
-    mixSlider.setValue(0.5); 
+    mixSlider.setValue(0.5);
     mixSlider.setSliderStyle(juce::Slider::LinearHorizontal);
     mixSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
     mixSlider.onValueChange = [this]()
@@ -415,7 +418,7 @@ PlayerGui::PlayerGui() {
 
 PlayerGui::~PlayerGui()
 {
-    
+
 }
 
 
@@ -578,8 +581,10 @@ void PlayerGui::resized()
 
     int buttonsY = listY - buttonSize - 12;
     loadFilesButton.setBounds((getWidth() - buttonSize) / 2, buttonsY, buttonSize, buttonSize);
+
     resetLeftButton.setBounds(leftStartX + 50, buttonsY, 70, 30);
     resetRightButton.setBounds(rightStartX + playerWidth - 120, buttonsY, 70, 30);
+
 
     setMarkerButtonLeft.setBounds(leftStartX, buttonsY, buttonSize, buttonSize);
     setMarkerButtonRight.setBounds(rightStartX + playerWidth - margin - buttonSize, buttonsY, buttonSize, buttonSize);
@@ -610,6 +615,9 @@ void PlayerGui::resized()
     markersListBoxLeft.setBounds(margin, listY, markersWidth, listHeight);
     PlaylistBox.setBounds(margin + markersWidth, listY, playlistWidth, listHeight);
     markersListBoxRight.setBounds(margin + markersWidth + playlistWidth, listY, markersWidth, listHeight);
+
+    resetLeftButton.toFront(true);
+    resetRightButton.toFront(true);
 }
 
 
@@ -758,16 +766,15 @@ void PlayerGui::buttonClicked(juce::Button* button)
     else if (button == &backward10sButtonRight && playerAudioRight != nullptr) {
         playerAudioRight->tenSec(false);
     }
-     
+
     else if (button == &resetLeftButton) {
-        DBG("RESET LEFT BUTTON CLICKED");
+        
         resetLeftPlayer();
-        }
+    }
     else if (button == &resetRightButton)
     {
-        DBG("RESET RIGHT BUTTON CLICKED");
         resetRightPlayer();
-        }
+    }
 }
 
 void PlayerGui::sliderValueChanged(juce::Slider* slider) {
@@ -793,7 +800,7 @@ void PlayerGui::sliderValueChanged(juce::Slider* slider) {
         playerAudioRight->setSpeed(speedSliderRight.getValue());
         markersListBoxRight.repaint();
     }
-    
+
 }
 
 void PlayerGui::sliderDragStarted(juce::Slider* slider) {
@@ -937,7 +944,7 @@ void PlayerGui::restoreGUIFromSession()
         positionSliderRight.setValue(playerAudioRight->getPositionNormalized(), juce::dontSendNotification);
         volumeSliderRight.setValue(playerAudioRight->getCurrentVolume(), juce::dontSendNotification);
 
-        
+
         speedSliderLeft.setValue(1.0, juce::dontSendNotification);
         speedSliderRight.setValue(1.0, juce::dontSendNotification);
 
@@ -947,7 +954,7 @@ void PlayerGui::restoreGUIFromSession()
         updateMarkersListRight();
         updatePlaylist();
 
-        
+
         repaint();
 
         DBG("GUI restored from session");
@@ -958,19 +965,24 @@ void PlayerGui::resetLeftPlayer()
 {
     if (playerAudioLeft != nullptr)
     {
-        
-        playerAudioLeft->stop();
-        playerAudioLeft->setPosition(0.0);
+        playerAudioLeft->resetToDefault();  
 
-       
         positionSliderLeft.setValue(0.0);
-        timeLabelLeft.setText("00:00:00 / 00:00:00", juce::dontSendNotification);
+        volumeSliderLeft.setValue(1.0);
+        speedSliderLeft.setValue(1.0);
 
-        
+        timeLabelLeft.setText("00:00:00 / 00:00:00", juce::dontSendNotification);
+        fileInfoLabelLeft.setText("Currently playing:\nNo file loaded", juce::dontSendNotification);
+        abMarkersLabelLeft.setText("A-B: Not set", juce::dontSendNotification);
+        speedLabelLeft.setText("1.00x", juce::dontSendNotification);
+
         playButtonLeft.setVisible(true);
         pauseButtonLeft.setVisible(false);
 
-        DBG("Left player reset to zero");
+        updateMarkersListLeft();
+        updatePlaylist();
+
+
     }
 }
 
@@ -978,17 +990,24 @@ void PlayerGui::resetRightPlayer()
 {
     if (playerAudioRight != nullptr)
     {
-       
-        playerAudioRight->stop();
-        playerAudioRight->setPosition(0.0);
+        playerAudioRight->resetToDefault();  
 
-    
+   
         positionSliderRight.setValue(0.0);
+        volumeSliderRight.setValue(1.0);
+        speedSliderRight.setValue(1.0);
+
         timeLabelRight.setText("00:00:00 / 00:00:00", juce::dontSendNotification);
+        fileInfoLabelRight.setText("Currently playing:\nNo file loaded", juce::dontSendNotification);
+        abMarkersLabelRight.setText("A-B: Not set", juce::dontSendNotification);
+        speedLabelRight.setText("1.00x", juce::dontSendNotification);
 
         playButtonRight.setVisible(true);
         pauseButtonRight.setVisible(false);
 
-        DBG("Right player reset to zero");
+        updateMarkersListRight();
+        
+
+        
     }
 }

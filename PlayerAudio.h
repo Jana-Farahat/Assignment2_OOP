@@ -90,6 +90,8 @@ public:
 
     bool getIsMuted() const { return isMuted; }
     bool isPlaying() const { return transportSource.isPlaying(); }
-    
+
+    void resetToDefault();
+
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerAudio)
 };
