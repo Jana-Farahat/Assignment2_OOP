@@ -226,6 +226,9 @@ private:
     juce::ImageButton forward10sButtonLeft;
     juce::ImageButton backward10sButtonLeft;
 
+    juce::Slider mixSlider;
+
+
     juce::ImageButton loadButtonRight;
     juce::ImageButton restartButtonRight;
     juce::ImageButton stopButtonRight;

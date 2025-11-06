@@ -351,6 +351,23 @@ PlayerGui::PlayerGui() {
     volumeSliderRight.addListener(this);
     addAndMakeVisible(volumeSliderRight);
 
+    addAndMakeVisible(mixSlider);
+    mixSlider.setRange(0.0, 1.0);
+    mixSlider.setValue(0.5); 
+    mixSlider.setSliderStyle(juce::Slider::LinearHorizontal);
+    mixSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+    mixSlider.onValueChange = [this]()
+        {
+            if (playerAudioLeft != nullptr && playerAudioRight != nullptr)
+            {
+                float mix = (float)mixSlider.getValue();
+
+                playerAudioLeft->setGain(1.0f - mix);
+                playerAudioRight->setGain(mix);
+            }
+        };
+
+
     positionSliderRight.setRange(0.0, 1.0, 0.0001);
     positionSliderRight.setValue(0.0);
     positionSliderRight.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
@@ -420,11 +437,13 @@ void PlayerGui::resized()
     int leftStartX = margin;
     int rightStartX = divider + margin;
 
+    // Progress bars
     progressBarLeft.setBounds(leftStartX, 10, playerWidth - margin, 18);
     progressBarRight.setBounds(rightStartX, 10, playerWidth - margin, 18);
 
-    int buttonAreaStart = (int)(playerWidth * 0.1f) + 20;
-    int buttonAreaWidth = (int)(playerWidth * 0.8f) - 40;
+    // Buttons
+    int buttonAreaStart = static_cast<int>(playerWidth * 0.1f) + 20;
+    int buttonAreaWidth = static_cast<int>(playerWidth * 0.8f) - 40;
     int buttonY = 50;
 
     int availableWidth = buttonAreaWidth - (9 * buttonSize);
@@ -433,6 +452,7 @@ void PlayerGui::resized()
     int currentXLeft = leftStartX + buttonAreaStart;
     int currentXRight = rightStartX + buttonAreaStart;
 
+    // First row of buttons
     stopButtonLeft.setBounds(currentXLeft, buttonY, buttonSize, buttonSize);
     currentXLeft += buttonSize + spacing;
     stopButtonRight.setBounds(currentXRight, buttonY, buttonSize, buttonSize);
@@ -473,20 +493,26 @@ void PlayerGui::resized()
     loopButtonLeft.setBounds(currentXLeft, buttonY, buttonSize, buttonSize);
     loopButtonRight.setBounds(currentXRight, buttonY, buttonSize, buttonSize);
 
-    int sliderY = buttonY + buttonSize + 20;
-    positionSliderLeft.setBounds(leftStartX, sliderY, playerWidth - margin, 25);
-    positionSliderRight.setBounds(rightStartX, sliderY, playerWidth - margin, 25);
+    // Position sliders
+    int positionSliderY = buttonY + buttonSize + 20;
+    positionSliderLeft.setBounds(leftStartX, positionSliderY, playerWidth - margin, 25);
+    positionSliderRight.setBounds(rightStartX, positionSliderY, playerWidth - margin, 25);
 
-    int controlRowY = sliderY + 35;
+    // Controls row
+    int controlRowY = positionSliderY + 35;
     int rowHeight = 22;
     int controlSpacing = 8;
     int buttonHeight = 18;
 
+    // Time labels
     int timeLabelWidth = 150;
-    int abLabelWidth = 150;
     int timeLabelXLeft = leftStartX + (playerWidth - margin - timeLabelWidth) / 2;
     timeLabelLeft.setBounds(timeLabelXLeft, controlRowY, timeLabelWidth, rowHeight);
 
+    int timeLabelXRight = rightStartX + (playerWidth - margin - timeLabelWidth) / 2;
+    timeLabelRight.setBounds(timeLabelXRight, controlRowY, timeLabelWidth, rowHeight);
+
+    // A-B markers left
     int rightXLeft = leftStartX + playerWidth - margin;
     int abButtonsY = controlRowY;
     setMarkerAButtonLeft.setBounds(rightXLeft - 50, abButtonsY, 50, buttonHeight);
@@ -500,65 +526,59 @@ void PlayerGui::resized()
     abLoopButtonLeft.setBounds(rightXLeft - 70, abButtonsY, 70, buttonHeight);
 
     rightXLeft -= 80;
-    abMarkersLabelLeft.setBounds(rightXLeft - abLabelWidth, controlRowY, abLabelWidth, rowHeight);
+    abMarkersLabelLeft.setBounds(rightXLeft - 150, controlRowY, 150, rowHeight);
 
-    int speedSliderWidth = 150;
-    int speedSliderHeight = 18;
-    int speedLabelWidth = 50;
-    int volumeSliderWidth = 150;
-    int volumeSliderHeight = 18;
-
+    // Sliders left
     int leftXSliders = leftStartX;
     muteButtonLeft.setBounds(leftXSliders, controlRowY + (rowHeight - muteButtonSize) / 2, muteButtonSize, muteButtonSize);
     leftXSliders += muteButtonSize + controlSpacing;
-    volumeSliderLeft.setBounds(leftXSliders, controlRowY + 2, volumeSliderWidth, volumeSliderHeight);
+    volumeSliderLeft.setBounds(leftXSliders, controlRowY + 2, 150, 18);
 
-    int volumeSpeedY = controlRowY + volumeSliderHeight + 4;
+    int volumeSpeedYLeft = controlRowY + 18 + 4;
     leftXSliders = leftStartX;
-    speedLabelLeft.setBounds(leftXSliders, volumeSpeedY, speedLabelWidth, rowHeight);
-    leftXSliders += speedLabelWidth + 5;
-    speedSliderLeft.setBounds(leftXSliders, volumeSpeedY + 2, speedSliderWidth, speedSliderHeight);
+    speedLabelLeft.setBounds(leftXSliders, volumeSpeedYLeft, 50, rowHeight);
+    leftXSliders += 50 + 5;
+    speedSliderLeft.setBounds(leftXSliders, volumeSpeedYLeft + 2, 150, 18);
 
+    // A-B markers right
     int leftX = rightStartX;
     abButtonsY = controlRowY;
     setMarkerAButtonRight.setBounds(leftX, abButtonsY, 50, buttonHeight);
     leftX += 55;
     clearMarkersButtonRight.setBounds(leftX, abButtonsY, 70, buttonHeight);
-    leftX = rightStartX;
     abButtonsY += buttonHeight + 2;
+    leftX = rightStartX;
     setMarkerBButtonRight.setBounds(leftX, abButtonsY, 50, buttonHeight);
     leftX += 55;
     abLoopButtonRight.setBounds(leftX, abButtonsY, 70, buttonHeight);
     leftX += 75;
     abMarkersLabelRight.setBounds(leftX, controlRowY, 150, rowHeight);
 
-    int timeLabelXRight = rightStartX + (playerWidth - margin - timeLabelWidth) / 2;
-    timeLabelRight.setBounds(timeLabelXRight, controlRowY, timeLabelWidth, rowHeight);
-
+    // Sliders right
     int rightX = rightStartX + playerWidth - margin;
     rightX -= muteButtonSize;
     muteButtonRight.setBounds(rightX, controlRowY + (rowHeight - muteButtonSize) / 2, muteButtonSize, muteButtonSize);
     rightX -= controlSpacing;
-    rightX -= volumeSliderWidth;
-    volumeSliderRight.setBounds(rightX, controlRowY + 2, volumeSliderWidth, volumeSliderHeight);
+    rightX -= 150; // volumeSlider width
+    volumeSliderRight.setBounds(rightX, controlRowY + 2, 150, 18);
 
-    volumeSpeedY = controlRowY + volumeSliderHeight + 4;
+    int volumeSpeedYRight = controlRowY + 18 + 4;
     rightX = rightStartX + playerWidth - margin;
     rightX -= muteButtonSize;
     rightX -= controlSpacing;
-    rightX -= speedSliderWidth;
-    speedSliderRight.setBounds(rightX, volumeSpeedY + 2, speedSliderWidth, speedSliderHeight);
-    rightX += speedSliderWidth + 5;
-    speedLabelRight.setBounds(rightX, volumeSpeedY, speedLabelWidth, rowHeight);
+    rightX -= 150; // speedSlider width
+    speedSliderRight.setBounds(rightX, volumeSpeedYRight + 2, 150, 18);
+    rightX += 150 + 5;
+    speedLabelRight.setBounds(rightX, volumeSpeedYRight, 50, rowHeight);
 
+    // Bottom buttons and lists
     int listBottomMargin = 15;
     int listHeight = 280;
     int listY = getHeight() - listHeight - listBottomMargin;
 
     int buttonsY = listY - buttonSize - 12;
     loadFilesButton.setBounds((getWidth() - buttonSize) / 2, buttonsY, buttonSize, buttonSize);
-
-    resetLeftButton.setBounds(leftStartX + 50, buttonsY, 70, 30);  // innovative
+    resetLeftButton.setBounds(leftStartX + 50, buttonsY, 70, 30);
     resetRightButton.setBounds(rightStartX + playerWidth - 120, buttonsY, 70, 30);
 
     setMarkerButtonLeft.setBounds(leftStartX, buttonsY, buttonSize, buttonSize);
@@ -568,20 +588,30 @@ void PlayerGui::resized()
     setMarkerButtonLeft.toFront(false);
     setMarkerButtonRight.toFront(false);
 
+    // File info labels
     int metadataSpacing = 15;
     int metadataHeight = 95;
     int metadataY = buttonsY - metadataSpacing - metadataHeight + 40;
     fileInfoLabelLeft.setBounds(leftStartX, metadataY, playerWidth - margin + 10, metadataHeight);
     fileInfoLabelRight.setBounds(rightStartX, metadataY, playerWidth - margin + 10, metadataHeight);
 
+    // Mixer slider
+    int mixSliderWidth = 400;
+    int mixSliderHeight = 30;
+    int mixSliderX = (getWidth() - mixSliderWidth) / 2;
+    int mixSliderY = metadataY + metadataHeight + (buttonsY - (metadataY + metadataHeight) - mixSliderHeight) / 6;
+    mixSlider.setBounds(mixSliderX, mixSliderY, mixSliderWidth, mixSliderHeight);
+
+    // List boxes
     int totalListWidth = getWidth() - 2 * margin;
-    int markersWidth = (int)(totalListWidth * 0.25f);
+    int markersWidth = static_cast<int>(totalListWidth * 0.25f);
     int playlistWidth = totalListWidth - 2 * markersWidth;
 
     markersListBoxLeft.setBounds(margin, listY, markersWidth, listHeight);
     PlaylistBox.setBounds(margin + markersWidth, listY, playlistWidth, listHeight);
     markersListBoxRight.setBounds(margin + markersWidth + playlistWidth, listY, markersWidth, listHeight);
 }
+
 
 void PlayerGui::buttonClicked(juce::Button* button)
 {
