@@ -7,45 +7,20 @@ MainComponent::MainComponent()
     addAndMakeVisible(playerGui);
     setSize(1500, 650);
 
-    juce::File appDataDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
-    juce::File appDir = appDataDir.getChildFile("SimpleAudioPlayer");
+    juce::File exeFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
+    juce::File sessionFile = exeFile.getParentDirectory().getChildFile("session.txt");
 
-    DBG("App data directory: " + appDataDir.getFullPathName());
-    DBG("App directory: " + appDir.getFullPathName());
-
-    if (!appDir.exists()) {
-        appDir.createDirectory();
-        DBG("Created app directory");
-    }
-
-    juce::File sessionFileLeft = appDir.getChildFile("session_left.txt");
-    juce::File sessionFileRight = appDir.getChildFile("session_right.txt");
-
-    DBG("Left session file: " + sessionFileLeft.getFullPathName());
-    DBG("Right session file: " + sessionFileRight.getFullPathName());
-
-    // Load sessions
-    playerAudioLeft.loadSession(sessionFileLeft);
-    playerAudioRight.loadSession(sessionFileRight);
+    playerGui.loadSession(sessionFile);
 
     setAudioChannels(0, 2);
 }
 
 MainComponent::~MainComponent()
 {
-    juce::File appDataDir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory);
-    juce::File appDir = appDataDir.getChildFile("SimpleAudioPlayer");
+    juce::File exeFile = juce::File::getSpecialLocation(juce::File::currentExecutableFile);
+    juce::File sessionFile = exeFile.getParentDirectory().getChildFile("session.txt");
 
-    // [DELETED] ??? ???? ?????? ?????? ?????? ?? ???
-    // if (!appDir.exists())
-    //     appDir.createDirectory();
-
-    juce::File sessionFileLeft = appDir.getChildFile("session_left.txt");
-    juce::File sessionFileRight = appDir.getChildFile("session_right.txt");
-
-    // FIX: Save sessions properly
-    playerAudioLeft.saveSession(sessionFileLeft);
-    playerAudioRight.saveSession(sessionFileRight);
+    playerGui.saveSession(sessionFile);
 
     shutdownAudio();
 }
@@ -55,10 +30,9 @@ void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate
     playerAudioLeft.prepareToPlay(samplesPerBlockExpected, sampleRate);
     playerAudioRight.prepareToPlay(samplesPerBlockExpected, sampleRate);
 
-    
     juce::MessageManager::callAsync([this]() {
         playerGui.restoreGUIFromSession();
-        });
+    });
 }
 
 void MainComponent::getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill)

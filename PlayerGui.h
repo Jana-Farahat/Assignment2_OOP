@@ -71,19 +71,20 @@ public:
 
     void resized() override {
         int buttonWidth = 60;
-        int removeWidth = getHeight() - 4;
+        int removeHeight = getHeight() - 4;  // Retain current height
+        int removeWidth = removeHeight + 8;  // Width is a bit more than height (8px wider)
         int playButtonWidth = 70;
         int playButtonHeight = getHeight() - 4;
         int buttonArea;
         if (rowMode == ListMode::Playlist || rowMode == ListMode::PlaylistLeft || rowMode == ListMode::PlaylistRight) {
             buttonArea = playButtonWidth + playButtonWidth + removeWidth + 6;
-            removeButton.setBounds(getWidth() - removeWidth, 2, removeWidth, removeWidth);
+            removeButton.setBounds(getWidth() - removeWidth, 2, removeWidth, removeHeight);
             playRightButton.setBounds(getWidth() - removeWidth - playButtonWidth - 2, 2, playButtonWidth, playButtonHeight);
             playLeftButton.setBounds(getWidth() - removeWidth - playButtonWidth - playButtonWidth - 4, 2, playButtonWidth, playButtonHeight);
         }
         else {
             buttonArea = buttonWidth + removeWidth + 4;
-            removeButton.setBounds(getWidth() - removeWidth, 2, removeWidth, removeWidth);
+            removeButton.setBounds(getWidth() - removeWidth, 2, removeWidth, removeHeight);
             actionButton.setBounds(getWidth() - removeWidth - buttonWidth - 2, 2, buttonWidth, getHeight() - 4);
         }
         textAreaWidth = getWidth() - buttonArea;
@@ -116,6 +117,56 @@ private:
     juce::TextButton removeButton;
     std::function<void()> updateCallback;
     int textAreaWidth = 0;
+};
+
+class PlaylistHeaderComponent : public juce::Component, public juce::Button::Listener {
+public:
+    PlaylistHeaderComponent(PlayerGui* gui) : playerGui(gui) {
+        resetPlaylistButton.setButtonText("Reset Playlist");
+        resetPlaylistButton.addListener(this);
+        addAndMakeVisible(&resetPlaylistButton);
+    }
+    
+    void resized() override {
+        int trackColWidth = (int)(getWidth() * 0.4f);
+        int durationColWidth = (int)(getWidth() * 0.25f);
+        int durationEndX = trackColWidth + 4 + durationColWidth + 175;
+        
+        int playButtonWidth = 70;
+        int removeHeight = getHeight() - 4;
+        int removeWidth = removeHeight + 8;
+        int buttonArea = playButtonWidth + playButtonWidth + removeWidth + 6;
+        int buttonsStartX = getWidth() - buttonArea;
+        
+        int buttonWidth = 120;
+        int availableSpace = buttonsStartX - durationEndX;
+        int buttonX = durationEndX + (availableSpace - buttonWidth) / 2;
+        
+        resetPlaylistButton.setBounds(buttonX, 2, buttonWidth, getHeight() - 4);
+    }
+    
+    void buttonClicked(juce::Button* button) override;
+    
+    void paint(juce::Graphics& g) override {
+        g.setColour(juce::Colours::darkgrey);
+        g.fillRect(0, 0, getWidth(), getHeight());
+        g.setColour(juce::Colours::lightgrey);
+        juce::Font headerFont(juce::FontOptions().withHeight(18.0f));
+        headerFont.setBold(true);
+        g.setFont(headerFont);
+        
+        int trackColWidth = (int)(getWidth() * 0.4f);
+        int durationColWidth = (int)(getWidth() * 0.25f);
+        g.drawText("Track", 4, 0, trackColWidth, getHeight(), juce::Justification::centredLeft);
+        g.drawText("Duration (HH:MM:SS)", trackColWidth + 4, 0, durationColWidth, getHeight(), juce::Justification::centredLeft);
+        g.setColour(juce::Colours::grey);
+        g.drawLine((float)(trackColWidth + 2), 0.0f, (float)(trackColWidth + 2), (float)getHeight(), 1.0f);
+        g.drawLine((float)(trackColWidth + durationColWidth + 2), 0.0f, (float)(trackColWidth + durationColWidth + 2), (float)getHeight(), 1.0f);
+    }
+    
+private:
+    PlayerGui* playerGui;
+    juce::TextButton resetPlaylistButton;
 };
 
 class ListModel : public juce::ListBoxModel {
@@ -196,6 +247,12 @@ public:
     PlayerAudio* playerAudioRight = nullptr;
 
     void restoreGUIFromSession();
+    void saveSession(const juce::File& sessionFile);
+    void loadSession(const juce::File& sessionFile);
+    juce::File getSessionFilePath() const { return sessionFilePath; }
+    
+    juce::Array<juce::File> playlist;
+    void resetPlaylist();
 
 private:
 
@@ -286,8 +343,29 @@ private:
     void setupIconButton(juce::ImageButton* button, const juce::Image& icon);
     void updateMuteButtonIcon();
 
-    
+    // Separator line positions for drawing
+    int separatorLineY = 0;
+    int separatorLineLeftX = 0;
+    int separatorLineRightX = 0;
 
+    // Session data storage
+    struct SessionData {
+        juce::String currentSong;
+        double position = 0.0;
+        float volume = 1.0f;
+        double speed = 1.0;
+        bool muted = false;
+        bool looping = false;
+        double markerA = -1.0;
+        double markerB = -1.0;
+        bool abLoopActive = false;
+        juce::Array<double> trackMarkers;
+        bool hasData = false;
+    };
+    SessionData sessionDataLeft;
+    SessionData sessionDataRight;
+    bool sessionLoaded = false;
+    juce::File sessionFilePath;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(PlayerGui)
 };

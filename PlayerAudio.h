@@ -20,6 +20,7 @@ private:
     bool wasPlaying = false;
     bool isMuted = false;
     float lastGain = 1.0f;
+    double currentSpeed = 1.0;
 
     double currentSampleRate = 0.0;
 
@@ -29,9 +30,7 @@ private:
 
     juce::Array<double> trackMarkers;
 
-    juce::File loadedFile; //edit
-
-    bool sessionFileLoaded = false;
+    juce::File loadedFile;
 
 public:
     juce::Array<juce::File> playlist;
@@ -61,11 +60,14 @@ public:
     bool isLoopingEnabled() const { return isLooping; }
     void performLoop();
     void setSpeed(double speed);
+    double getSpeed() const { return currentSpeed; }
     void addtoPlaylist(const juce::Array<juce::File>& files);
     void loadFromPlaylist(int i);
 
     void setMarkerA();
     void setMarkerB();
+    void setMarkerAFromNormalized(double normalizedPos);
+    void setMarkerBFromNormalized(double normalizedPos);
     void clearMarkers();
     void toggleABLoop();
     double getMarkerA() const;
@@ -75,14 +77,13 @@ public:
     double getMarkerBTime() const;
 
     void addTrackMarker();
+    void addTrackMarkerFromNormalized(double normalizedPos);
     void removeTrackMarker(int index);
     void jumpToMarker(int index);
     int getMarkerCount() const { return trackMarkers.size(); }
     double getMarkerTime(int index) const;
     void clearTrackMarkers();
 
-    void saveSession(const juce::File& sessionFile);
-    void loadSession(const juce::File& sessionFile);
     float getCurrentVolume() const { return currentVolume; }
     juce::String getCurrentSongPath() const { return currentSong; }
 
